@@ -16,7 +16,7 @@ import tensorflow.compat.v2 as tf
 tf.enable_v2_behavior()
 
 from tensorflow.keras.layers import Dense
-from tf.io.gfile import gfile
+from tensorflow.io import gfile
 import numpy as np
 
 from .core import Arrow
@@ -944,19 +944,19 @@ class MPNetwork():
 
     # Then serialize them all in one big array and store it.
     filename = base_fn + "_{:08d}.npy".format(step)
-    with gfile.Open(filename, "wb") as fout:
+    with gfile.GFile(filename, "wb") as fout:
       np.save(fout, network_weights.numpy())
 
   def load_weights(self, base_fn):
     """Find the latest checkpoint matching base_fn, and load the weights."""
 
     matcher = base_fn + "_*.npy"
-    filenames = sorted(gfile.Glob(matcher), reverse=True)
+    filenames = sorted(gfile.glob(matcher), reverse=True)
     assert len(filenames) > 0, "No files matching {}".format(matcher)
     filename = filenames[0]
 
     # load array
-    with gfile.Open(filename, "rb") as fin:
+    with gfile.GFile(filename, "rb") as fin:
       serialized_weights = np.load(fin)
 
     print(serialized_weights.shape, self.all_weights_flat_sizes)
