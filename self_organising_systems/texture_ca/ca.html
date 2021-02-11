@@ -1,0 +1,177 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/twgl.js@4.15.0/dist/4.x/twgl-full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.7/build/dat.gui.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.3.4/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.3.4/EasePack.min.js"></script>
+<script type="module" src="ca.js"></script>
+
+<div>
+  <canvas id="overCanvas" width="1024" height="512" style="position: absolute;"></canvas>
+  <canvas id="glCanvas" width="1024" height="512" style='z-index: 1'></canvas>
+</div>
+<p>Press SPACE for animation</p>
+<img id="icons" src="data/icons.jpeg"></img><br>
+Neural CA textures. Click the field to damage. Click the Atlas to select a pattern.<br>
+Be sure to press the "<b>benchmark</b>" button and report the result and device specs to moralex@
+<pre id="log"></pre>
+
+<script type="module">
+  import { CA } from "./ca.js"
+
+  const canvas = document.querySelector('#glCanvas');
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  canvas.width = Math.round(canvas.clientWidth * devicePixelRatio);
+  canvas.height = Math.round(canvas.clientHeight * devicePixelRatio);
+  canvas.style.width = 1024 + "px";
+  canvas.style.height = 512 + "px";
+  const overCanvas = document.querySelector('#overCanvas');
+  const gl = canvas.getContext("webgl");
+  const ctx = overCanvas.getContext("2d");
+  const W = 256, H = 256;
+
+  const gui = new dat.GUI();
+  const param = {
+    active: true,
+    model: 132,
+    brushRadius: 16,
+    zoom: 16,
+    stepPerFrame: 1,
+    paintMode: false,
+  };
+  gui.add(param, 'active');
+  gui.add(param, 'brushRadius', 1, 40);
+  gui.add(param, 'zoom', 1.0, 64.0);
+  gui.add(param, 'stepPerFrame', 0, 6);
+  gui.add(param, 'paintMode', 0, 6);
+
+  fetch('data/models.json').then(r => r.json()).then(models => {
+    const ca = new CA(gl, models, [W, H], gui);
+    window.ca = ca;
+    ca.alignment = 0;
+    
+    const name2idx = Object.fromEntries(models.model_names.map((s, i) => [s, i]));
+    gui.add(param, 'model').options(name2idx).listen();
+    document.getElementById('icons').addEventListener('click', e=>{
+      const tileSize = 48;
+      const tx = Math.floor(e.offsetX/tileSize);
+      const ty = Math.floor(e.offsetY/tileSize);
+      const i = ty*12+tx;
+      console.log(i);
+      param.model = i<models.model_names.length ? i : -1;
+      if (!param.paintMode) {
+        ca.paint(128, 128, 1000, i);
+        ca.clearCircle(0, 0, 1000);
+      }
+    });
+    ca.paint(128, 128, 1000, param.model);
+
+    function canvasToGrid(x, y) {
+      const [w, h] = ca.gridSize;
+      const gridX = x / canvas.clientWidth * w * 2.0;
+      const gridY = y / canvas.clientHeight * h;
+      return [gridX, gridY];
+    }
+    function getMousePos(e) {
+      return canvasToGrid(e.offsetX, e.offsetY);
+    }
+    function getTouchPos(touch) {
+      const rect = canvas.getBoundingClientRect();
+      return canvasToGrid(touch.clientX - rect.left, touch.clientY - rect.top);
+    }
+    function touch(pos) {
+      const [x, y] = pos;
+      if ( param.paintMode ) {
+        ca.paint(x, y, param.brushRadius, param.model);
+      } else {
+        ca.clearCircle(x, y, param.brushRadius);
+      }
+    };
+
+    overCanvas.onmousedown = e => {
+      e.preventDefault();
+      if (e.buttons == 1) {
+        touch(getMousePos(e));
+      }
+    }
+    overCanvas.onmousemove = e => {
+      e.preventDefault();
+      if (e.buttons == 1) {
+        touch(getMousePos(e));
+      }
+    }
+    overCanvas.addEventListener("touchstart", e => {
+      e.preventDefault();
+      touch(getTouchPos(e.changedTouches[0]));
+    });
+    overCanvas.addEventListener("touchmove", e => {
+      e.preventDefault();
+      for (const t of e.touches) {
+        touch(getTouchPos(t));
+      }
+    });
+
+    param.benchmark = ()=>{
+      document.getElementById('log').insertAdjacentHTML('afterbegin', ca.benchmark());
+    }
+    gui.add(param, 'benchmark');
+
+    function render() {
+      if (param.active) {
+        const t = 2.0 * Date.now() / 1000.0;
+        //ca.clearCircle(Math.sin(t * 2.0) * W / 3 + W / 2, Math.cos(t * 3.1) * H / 3 + H / 2, 20);
+        for (let i=0; i<param.stepPerFrame; ++i) ca.step();
+      }
+      twgl.bindFramebufferInfo(gl);
+      const sz = 512;
+      const gz = 512*devicePixelRatio;
+      gl.viewport(0, 0, gz, gz);
+      ca.draw();
+      gl.viewport(gz, 0, gz, gz);
+      ca.draw(param.zoom);
+
+      const d = sz/param.zoom;
+      ctx.clearRect(0, 0, 2*sz, sz);
+      if (param.zoom > 1.0) {
+        ctx.strokeStyle = 'white';
+        ctx.strokeRect(sz/2-d/2, sz/2-d/2, d, d);
+      }
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+
+
+    TweenLite.defaultEase = Power1.easeInOut;
+    const TL = new TimelineMax({paused: true});
+
+    window.addEventListener("keydown", e=>{
+      if (e.key == ' ') {
+        e.preventDefault();
+        TL.paused(!TL.paused());
+      }
+    });
+
+    TL.to(param, 4.0, {zoom: 40.0, ease: ExpoScaleEase.config(1.0, 40.0)});
+    //TL.addPause();
+
+    TL.to(ca, 1.0, {perceptionCircle: 1.0});
+    //TL.addPause();
+    TL.add('x');
+    TL.to(ca, 1.0, {perceptionCircle: 0.0});
+    TL.to(ca, 1.0, {arrowsCoef: 1.0}, '-=1');
+    //TL.addPause();
+
+
+    TL.to(ca, 1.0, {rotationAngle: 60.0});
+    //TL.addPause();
+    TL.set(ca, {alignment: 1.0}, '+=0.1');
+    //TL.addPause();
+    TL.set(ca, {alignment: 2.0}, '+=0.1');
+    //TL.addPause();
+    TL.to(ca, 1.0, {rotationAngle: 0.0});
+
+    //TL.seek('x');
+  })
+</script>
