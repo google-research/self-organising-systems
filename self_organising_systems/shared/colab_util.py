@@ -1,4 +1,3 @@
-# Lint as: python3
 """ Useful functions for running in colab.
 """
 

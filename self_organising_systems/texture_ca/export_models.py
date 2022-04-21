@@ -1,4 +1,3 @@
-# Lint as: python3
 """
 Converts exported .npy models to a single json.
 """

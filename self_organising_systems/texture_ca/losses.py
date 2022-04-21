@@ -1,4 +1,3 @@
-# Lint as: python3
 from self_organising_systems.texture_ca.config import cfg
 from self_organising_systems.shared.util import imread
 import tensorflow as tf
