@@ -1,14 +1,14 @@
 - name: Growing Cellular Automata 
-  url: https://distill.pub/selforg/2021/textures
+  url: "https://distill.pub/2020/growing-ca/"
 - name: Self Organising Textures
-  url: https://distill.pub/selforg/2021/textures
+  url: "https://distill.pub/selforg/2021/textures"
 - name: Adversarial Reprogramming NCA
-  url: https://distill.pub/selforg/2021/adversarial/
+  url: "https://distill.pub/selforg/2021/adversarial/"
 - name: Self-Classifying MNIST
-  url: https://distill.pub/2020/selforg/mnist/
+  url: "https://distill.pub/2020/selforg/mnist/"
 - name: Reaction-Diffusion
-  url: https://selforglive.github.io/alife_rd_textures/ALIFE_Reaction_Diffusion.pdf
+  url: "https://selforglive.github.io/alife_rd_textures/ALIFE_Reaction_Diffusion.pdf"
 - name: muNCA
-  url: https://arxiv.org/pdf/2111.13545.pdf
+  url: "https://arxiv.org/pdf/2111.13545.pdf"
 - Isotropic NCA
-  url: https://arxiv.org/abs/2205.01681
+  url: "https://arxiv.org/abs/2205.01681"
