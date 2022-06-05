@@ -18,7 +18,7 @@ Out: 01000100000101010
 
 <img style="margin-right:20px;height:180px;vertical-align: top;" src="images/task0_ref_fsm.svg">
 <div style="display:inline-block">
-{% include images/task0_ref.html %}
+{% include_relative images/task0_ref.html %}
 </div>
 <figcaption>Mealy machine and its transition table</figcaption>
 </figure>
@@ -137,7 +137,7 @@ def run_fsm(fsm: FSM, inputs):
 
 <div class='fsm_table'>
 <a href="https://colab.research.google.com/github/znah/post-diff-fsm/blob/master/notebooks/diff_fsm_jax.ipynb#scrollTo=X7vKvta5-Nle" target="_blank" class="colab-root">Reproduce in a <span class="colab-span">Notebook</span></a>
-{% include all_tasks.html %}
+{% include_relative all_tasks.html %}
 </div>
 
 <p>For <i>most</i> problems it's easy to validate that the intended solution was indeed found. The task 8 ("shift the string right by two characters") FSM may look a bit cumbersome, but it's easy to understand what the state machine is doing by renaming the states: <code>A-&gt;00, B-&gt;01, C-&gt;11, D-&gt;10</code>. Now the label of each state reflects two most recent input bits, stored by the FSM and ready to be emitted.</p>
