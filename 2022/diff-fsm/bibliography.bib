@@ -1,0 +1,248 @@
+
+@ARTICLE{Graves2014-tt,
+  title         = "Neural Turing Machines",
+  author        = "Graves, Alex and Wayne, Greg and Danihelka, Ivo",
+  abstract      = "We extend the capabilities of neural networks by coupling
+                   them to external memory resources, which they can interact
+                   with by attentional processes. The combined system is
+                   analogous to a Turing Machine or Von Neumann architecture
+                   but is differentiable end-to-end, allowing it to be
+                   efficiently trained with gradient descent. Preliminary
+                   results demonstrate that Neural Turing Machines can infer
+                   simple algorithms such as copying, sorting, and associative
+                   recall from input and output examples.",
+  month         =  oct,
+  year          =  2014,
+  archivePrefix = "arXiv",
+  primaryClass  = "cs.NE",
+  eprint        = "1410.5401",
+  url="https://arxiv.org/abs/1410.5401"
+}
+
+
+@ARTICLE{Koul2018-qy,
+  title         = "Learning Finite State Representations of Recurrent Policy
+                   Networks",
+  author        = "Koul, Anurag and Greydanus, Sam and Fern, Alan",
+  abstract      = "Recurrent neural networks (RNNs) are an effective
+                   representation of control policies for a wide range of
+                   reinforcement and imitation learning problems. RNN policies,
+                   however, are particularly difficult to explain, understand,
+                   and analyze due to their use of continuous-valued memory
+                   vectors and observation features. In this paper, we
+                   introduce a new technique, Quantized Bottleneck Insertion,
+                   to learn finite representations of these vectors and
+                   features. The result is a quantized representation of the
+                   RNN that can be analyzed to improve our understanding of
+                   memory use and general behavior. We present results of this
+                   approach on synthetic environments and six Atari games. The
+                   resulting finite representations are surprisingly small in
+                   some cases, using as few as 3 discrete memory states and 10
+                   observations for a perfect Pong policy. We also show that
+                   these finite policy representations lead to improved
+                   interpretability.",
+  month         =  nov,
+  year          =  2018,
+  archivePrefix = "arXiv",
+  primaryClass  = "cs.LG",
+  eprint        = "1811.12530",
+  url="https://arxiv.org/abs/1811.12530"
+}
+
+
+
+
+@ARTICLE{Pigem2013-tr,
+  title    = "Learning finite-state machines: statistical and algorithmic
+              aspects",
+  author   = "Pigem, Balle and De, Borja",
+  abstract = "This thesis gives the first application of this method for
+              learning conditional distributions over pairs of aligned
+              sequences and proves that the method can learn the whole class of
+              probabilistic automata, thus extending the class of models
+              previously known to be learnable with this approach. The present
+              thesis addresses several machine learning problems on generative
+              and predictive models on sequential data. All the models
+              considered have in common that they can be de ned in terms of
+              nite-state machines. On one line of work we study algorithms for
+              learning the probabilistic analog of Deterministic Finite
+              Automata (DFA). This provides a fairly expressive generative
+              model for sequences with very interesting algorithmic properties.
+              State-merging algorithms for learning these models can be
+              interpreted as a divisive clustering scheme where the
+              ``dependency graph'' between clusters is not necessarily a tree.
+              We characterize these algorithms in terms of statistical queries
+              and a use this characterization for proving a lower bound with an
+              explicit dependency on the distinguishability of the target
+              machine. In a more realistic setting, we give an adaptive
+              state-merging algorithm satisfying the stringent algorithmic
+              constraints of the data streams computing paradigm. Our
+              algorithms come with strict PAC learning guarantees. At the heart
+              of state-merging algorithms lies a statistical test for
+              distribution similarity. In the streaming version this is
+              replaced with a bootstrap-based test which yields faster
+              convergence in many situations. We also studied a wider class of
+              models for which the state-merging paradigm also yield PAC
+              learning algorithms. Applications of this method are given to
+              continuous-time Markovian models and stochastic transducers on
+              pairs of aligned sequences. The main tools used for obtaining
+              these results include a variety of concentration inequalities and
+              sketching algorithms. In another line of work we contribute to
+              the rapidly growing body of spectral learning algorithms. The
+              main virtues of this type of algorithms include the possibility
+              of proving nite-sample error bounds in the realizable case and
+              enormous savings on computing time over iterative methods like
+              Expectation-Maximization. In this thesis we give the rst
+              application of this method for learning conditional distributions
+              over pairs of aligned sequences de ned by probabilistic
+              nite-state transducers. We also prove that the method can learn
+              the whole class of probabilistic automata, thus extending the
+              class of models previously known to be learnable with this
+              approach. In the last two chapters we present works combining
+              spectral learning with methods from convex optimization and
+              matrix completion. Respectively, these yield an alternative
+              interpretation of spectral learning and an extension to cases
+              with missing data. In the latter case we used a novel joint
+              stability analysis of matrix completion and spectral learning to
+              prove the rst generalization bound for this type of algorithms
+              that holds in the non-realizable case. Work in this area has been
+              motivated by connections between spectral learning, classic
+              automata theory, and statistical learning; tools from these three
+              areas have been used.",
+  year     =  2013,
+  language = "en",
+  url = "https://borjaballe.github.io/other/phdthesis.pdf"
+}
+
+
+@ARTICLE{Lan2021-sz,
+  title         = "Minimum Description Length Recurrent Neural Networks",
+  author        = "Lan, Nur and Geyer, Michal and Chemla, Emmanuel and Katzir,
+                   Roni",
+  abstract      = "We train neural networks to optimize a Minimum Description
+                   Length score, i.e., to balance between the complexity of the
+                   network and its accuracy at a task. We show that networks
+                   optimizing this objective function master tasks involving
+                   memory challenges and go beyond context-free languages.
+                   These learners master languages such as $a^nb^n$,
+                   $a^nb^nc^n$, $a^nb^\{2n\}$, $a^nb^mc^\{n+m\}$, and they
+                   perform addition. Moreover, they often do so with 100\%
+                   accuracy. The networks are small, and their inner workings
+                   are transparent. We thus provide formal proofs that their
+                   perfect accuracy holds not only on a given test set, but for
+                   any input sequence. To our knowledge, no other connectionist
+                   model has been shown to capture the underlying grammars for
+                   these languages in full generality.",
+  month         =  oct,
+  year          =  2021,
+  archivePrefix = "arXiv",
+  primaryClass  = "cs.CL",
+  eprint        = "2111.00600",
+  url = "http://arxiv.org/abs/2111.00600",
+}
+
+@ARTICLE{LearnLib,
+  title     = "{LearnLib}: a framework for extrapolating behavioral models",
+  author    = "Raffelt, Harald and Steffen, Bernhard and Berg, Therese and
+               Margaria, Tiziana",
+  journal   = "Int. J. Softw. Tools Technol. Trans.",
+  publisher = "Springer Science and Business Media LLC",
+  volume    =  11,
+  number    =  5,
+  pages     = "393--407",
+  month     =  nov,
+  year      =  2009,
+  language  = "en",
+  url="https://learnlib.de/"
+}
+
+@ARTICLE{Hannun2020-vj,
+  title         = "Differentiable Weighted {Finite-State} Transducers",
+  author        = "Hannun, Awni and Pratap, Vineel and Kahn, Jacob and Hsu,
+                   Wei-Ning",
+  abstract      = "We introduce a framework for automatic differentiation with
+                   weighted finite-state transducers (WFSTs) allowing them to
+                   be used dynamically at training time. Through the separation
+                   of graphs from operations on graphs, this framework enables
+                   the exploration of new structured loss functions which in
+                   turn eases the encoding of prior knowledge into learning
+                   algorithms. We show how the framework can combine pruning
+                   and back-off in transition models with various
+                   sequence-level loss functions. We also show how to learn
+                   over the latent decomposition of phrases into word pieces.
+                   Finally, to demonstrate that WFSTs can be used in the
+                   interior of a deep neural network, we propose a
+                   convolutional WFST layer which maps lower-level
+                   representations to higher-level representations and can be
+                   used as a drop-in replacement for a traditional convolution.
+                   We validate these algorithms with experiments in handwriting
+                   recognition and speech recognition.",
+  month         =  oct,
+  year          =  2020,
+  archivePrefix = "arXiv",
+  primaryClass  = "cs.LG",
+  eprint        = "2010.01003"
+}
+
+@PHDTHESIS{Aspects_undated-nl,
+  title  = "Learning {Finite-State} Machines",
+  author = "Aspects, Algorithmic"
+}
+
+@MISC{Hannun2021-gi,
+  title        = "An introduction to weighted automata in machine learning",
+  author       = "Hannun, Awni",
+  abstract     = "The goal of this work is to introduce the reader to weighted
+                  finite-state automata and their application to machine
+                  learning. I begin by motivating the use of automata in
+                  machine learning and proceed with an introduction to
+                  acceptors, transducers, and their associated properties. Many
+                  of the core operations of weighted automata are then
+                  described in detail. Following this, the work moves closer to
+                  the research frontier by explaining automatic differentiation
+                  and its use with weighted automata. The last section presents
+                  several extended examples to gain deeper familiarity with
+                  weighted automata, their operations, and their use in machine
+                  learning.",
+  year         =  2021,
+  howpublished = "\url{https://awnihannun.com/writing/automata_ml/automata_in_machine_learning.pdf}",
+  note         = "Accessed: 2022-3-21"
+}
+
+@ARTICLE{Johnson2020-ky,
+  title         = "Learning graph structure with A finite-State Automaton layer",
+  author        = "Johnson, Daniel D and Larochelle, Hugo and Tarlow, Daniel",
+  abstract      = "Graph-based neural network models are producing strong
+                   results in a number of domains, in part because graphs
+                   provide flexibility to encode domain knowledge in the form
+                   of relational structure (edges) between nodes in the graph.
+                   In practice, edges are used both to represent intrinsic
+                   structure (e.g., abstract syntax trees of programs) and more
+                   abstract relations that aid reasoning for a downstream task
+                   (e.g., results of relevant program analyses). In this work,
+                   we study the problem of learning to derive abstract
+                   relations from the intrinsic graph structure. Motivated by
+                   their power in program analyses, we consider relations
+                   defined by paths on the base graph accepted by a
+                   finite-state automaton. We show how to learn these relations
+                   end-to-end by relaxing the problem into learning
+                   finite-state automata policies on a graph-based POMDP and
+                   then training these policies using implicit differentiation.
+                   The result is a differentiable Graph Finite-State Automaton
+                   (GFSA) layer that adds a new edge type (expressed as a
+                   weighted adjacency matrix) to a base graph. We demonstrate
+                   that this layer can find shortcuts in grid-world graphs and
+                   reproduce simple static analyses on Python programs.
+                   Additionally, we combine the GFSA layer with a larger
+                   graph-based model trained end-to-end on the variable misuse
+                   program understanding task, and find that using the GFSA
+                   layer leads to better performance than using hand-engineered
+                   semantic edges or other baseline methods for adding learned
+                   edge types.",
+  month         =  jul,
+  year          =  2020,
+  copyright     = "http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
+  archivePrefix = "arXiv",
+  primaryClass  = "cs.LG",
+  eprint        = "2007.04929"
+}
