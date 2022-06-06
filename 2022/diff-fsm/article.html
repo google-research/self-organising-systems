@@ -1,9 +1,11 @@
 <d-article>
-<p><a href="https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/notebooks/diff_fsm_jax.ipynb#scrollTo=KqJ971iNjenq" target="_blank" class="colab-root">Reproduce in a <span class="colab-span">Notebook</span></a> <a class="discuss-button" href="https://github.com/google-research/self-organising-systems/discussions/6">Discuss on GitHub</a></p>
+<p><a href="https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/notebooks/diff_fsm_jax.ipynb#scrollTo=KqJ971iNjenq" target="_blank" class="colab-root">Reproduce in a <span class="colab-span">Notebook</span></a>
+<a class="colab-root" href="https://github.com/google-research/self-organising-systems/discussions/6"> Discuss on <span class="github-span"></span></a>
+</p>
 
 <p>In this blog post I'd like to show how differentiable optimization can be used to learn Finite State Machines (FSM) for solving toy string processing tasks. I'll show how simple regularization and initialization techniques can steer continuous optimization towards finding discrete deterministic solutions and increase the training success rate. I think that experiments shown here may have some educational value, e.g. in demonstrating less conventional (and perhaps unexpected) uses of differentiable programming and some elegant JAX tricks.</p>
 
-<p>There exists a vast literature on various approaches to FSM synthesis from data, so it's highly likely that the particular method described here is already well known. A quick review of related literature will be given in the <a href='#related-work'>Related Work</a> section. Please feel free to refer to additional relevant resources or leave comments on the article <a href='https://github.com/google-research/self-organising-systems/discussions/6'>discussion page</a>.</p>
+<p>There exists a vast literature on various approaches to FSM synthesis from data, so it's highly likely that the particular method described here is already well known. A quick review of related literature will be given in the <a href='#related-work'>Related Work</a> section.</p>
 
 <p>Here is an example of a toy problem we are going to solve. Consider a pair of input-output strings: </p>
 
