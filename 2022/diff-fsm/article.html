@@ -1,5 +1,5 @@
 <d-article>
-<p><a href="https://colab.research.google.com/github/znah/post-diff-fsm/blob/master/notebooks/diff_fsm_jax.ipynb#scrollTo=KqJ971iNjenq" target="_blank" class="colab-root">Reproduce in a <span class="colab-span">Notebook</span></a></p>
+<p><a href="https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/notebooks/diff_fsm_jax.ipynb#scrollTo=KqJ971iNjenq" target="_blank" class="colab-root">Reproduce in a <span class="colab-span">Notebook</span></a></p>
 <p>In this blog post I'd like to show how differentiable optimization can be used to learn Finite State Machines (FSM) for solving toy string processing tasks. I'll show how simple regularization and initialization techniques can steer continuous optimization towards finding discrete deterministic solutions and increase the training success rate. I think that experiments shown here may have some educational value, e.g. in demonstrating less conventional (and perhaps unexpected) uses of differentiable programming and some elegant JAX tricks.</p>
 
 <p>There exists a vast literature on various approaches to FSM synthesis from data, so it's highly likely that the particular method described here is already well known. A quick review of related literature will be given in the <a href='#related-work'>Related Work</a> section. Please feel free to point me to additional relevant resources or leave comments in this issue [TODO] on GitHub.</p>
@@ -136,7 +136,7 @@ def run_fsm(fsm: FSM, inputs):
 <p>I rename states, assigning letters in the order of the first visit during processing of the training input. This way we can equalize solutions that only differ by the states' order. Note that these diagrams only show nodes and edges that were traversed during processing of the training sequence, missing edges are considered undefined (e.g. task 3 FSM doesn't have an edge corresponding to the input "1" from the state B'").</p>
 
 <div class='fsm_table'>
-<a href="https://colab.research.google.com/github/znah/post-diff-fsm/blob/master/notebooks/diff_fsm_jax.ipynb#scrollTo=X7vKvta5-Nle" target="_blank" class="colab-root">Reproduce in a <span class="colab-span">Notebook</span></a>
+<a href="https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/notebooks/diff_fsm_jax.ipynb#scrollTo=X7vKvta5-Nle" target="_blank" class="colab-root">Reproduce in a <span class="colab-span">Notebook</span></a>
 {% include_relative all_tasks.html %}
 </div>
 
