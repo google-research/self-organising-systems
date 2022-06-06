@@ -1,5 +1,6 @@
 <d-article>
-<p><a href="https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/notebooks/diff_fsm_jax.ipynb#scrollTo=KqJ971iNjenq" target="_blank" class="colab-root">Reproduce in a <span class="colab-span">Notebook</span></a></p>
+<p><a href="https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/notebooks/diff_fsm_jax.ipynb#scrollTo=KqJ971iNjenq" target="_blank" class="colab-root">Reproduce in a <span class="colab-span">Notebook</span></a> <a class="discuss-button" href="https://github.com/google-research/self-organising-systems/discussions/6">Discuss on GitHub</a></p>
+
 <p>In this blog post I'd like to show how differentiable optimization can be used to learn Finite State Machines (FSM) for solving toy string processing tasks. I'll show how simple regularization and initialization techniques can steer continuous optimization towards finding discrete deterministic solutions and increase the training success rate. I think that experiments shown here may have some educational value, e.g. in demonstrating less conventional (and perhaps unexpected) uses of differentiable programming and some elegant JAX tricks.</p>
 
 <p>There exists a vast literature on various approaches to FSM synthesis from data, so it's highly likely that the particular method described here is already well known. A quick review of related literature will be given in the <a href='#related-work'>Related Work</a> section. Please feel free to refer to additional relevant resources or leave comments on the article <a href='https://github.com/google-research/self-organising-systems/discussions/6'>discussion page</a>.</p>
@@ -152,10 +153,13 @@ def run_fsm(fsm: FSM, inputs):
 
 <p><a href='https://learnlib.de/'>LearnLib</a> <d-cite key="LearnLib"></d-cite> is an extensive library of FSM learning algorithms that are used in practice of e.g. communication systems modeling. An extensive discussion of probabilistic FSM learning can also be found here <d-cite key="Pigem2013-tr"></d-cite>.</p>
 
-<p>State machines were also shown to be useful as parts of more complex differentiable machine learning systems, e.g. <d-cite key="Graves2014-tt,Koul2018-qy"></d-cite></p>
+<p>State machines were also shown to be useful as parts of more complex differentiable machine learning systems. For example, it was shown <d-cite key="Koul2018-qy"></d-cite> that it's possible to extract compact FSMs from RNN-based game policy controllers and string matchers, using post-training quantization.</p>
+
+<p>On another end Neural Turing Machines <d-cite key="Graves2014-tt"></d-cite> take inspiration from classical discrete computer science concepts and implement trainable differentiable analogies.</p>
 
 <p>An interesting recent work <d-cite key="Lan2021-sz"></d-cite> tries to solve toy sequential string processing problems using very small recurrent neural networks instead of discrete state machines, and uses genetic algorithms instead of differentiable optimization. Authors make emphasis on interpretability and generalization of very compact models.</p>
-
+<h2 id='conclusion'>Conclusion</h2>
+<p>In this tutorial we've seen that simple deterministic string processing finite state machines can be discovered as a limit case of differentiable stochastic state machines. I've only covered simple toy problems in this tutorial, but differentiability allows incorporating FSMs in mode complex end-to-end pipelines that I'm going to talk about in future publications.</p>
 </d-article>
 <d-appendix>
 <h2 id='acknowledgements'>Acknowledgements</h2>
