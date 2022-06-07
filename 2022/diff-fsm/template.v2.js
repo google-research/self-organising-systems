@@ -101,6 +101,8 @@
     target.authors = source.authors.map( (authorObject) => new Author(authorObject));
     target.katex = source.katex;
     target.password = source.password;
+    target.url = source.url;
+    target.slug = source.slug;
     if (source.doi) {
       target.doi = source.doi;
     }
@@ -287,16 +289,23 @@
       }).join(' and ');
     }
 
-    // 'olah2016attention'
-    get slug() {
-      let slug = '';
-      if (this.authors.length) {
-        slug += this.authors[0].lastName.toLowerCase();
-        slug += this.publishedYear;
-        slug += this.title.split(' ')[0].toLowerCase();
-      }
-      return slug || 'Untitled';
+    set slug(value) {
+      this._slug = value;
     }
+
+    get slug() {
+      if (this._slug) {
+        return this._slug;
+      } else {
+        let slug = '';
+        if (this.authors.length) {
+          slug += this.authors[0].lastName.toLowerCase();
+          slug += this.publishedYear;
+          slug += this.title.split(' ')[0].toLowerCase();
+        }
+        return slug || 'Untitled';
+      }
+    };
 
     get bibliographyEntries() {
       return new Map(this.citations.map( citationKey => {
@@ -1978,17 +1987,25 @@ d-appendix > distill-appendix {
     }
     return bibliography;
   }
-
+// @misc{citekey,
+//   author       = "",
+//   title        = "",
+//   howpublished = "",
+//   month        = "",
+//   year         = "",
+//   note         = "",
+//   annote       = ""
+// }
   function serializeFrontmatterToBibtex(frontMatter) {
-    return `@article{${frontMatter.slug},
+    return `@misc{${frontMatter.slug},
   author = {${frontMatter.bibtexAuthors}},
   title = {${frontMatter.title}},
-  journal = {${frontMatter.journal.title}},
+  url = {${frontMatter.t url}},
   year = {${frontMatter.publishedYear}},
-  note = {${frontMatter.url}},
-  doi = {${frontMatter.doi}}
 }`;
   }
+
+  // doi = {${frontMatter.doi}}
 
   // Copyright 2018 The Distill Template Authors
 
@@ -9057,7 +9074,7 @@ distill-header .nav a {
       html += `
     <h3 id="citation">Citation</h3>
     <p>For attribution in academic contexts, please cite this work as</p>
-    <pre class="citation short">${frontMatter.concatenatedAuthors}, "${frontMatter.title}", Distill, ${frontMatter.publishedYear}.</pre>
+    <pre class="citation short">${frontMatter.concatenatedAuthors}, "${frontMatter.title}", ${frontMatter.publishedYear}.</pre>
     <p>BibTeX citation</p>
     <pre class="citation long">${serializeFrontmatterToBibtex(frontMatter)}</pre>
     `;
