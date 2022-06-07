@@ -5,3 +5,7 @@ This page is intended as an introduction and ongoing status page for a research 
 {% for publication in site.data.publications %}
 - [{{ publication.name }}]({{ publication.url }})
 {% endfor %}
+
+## Tutorials
+
+- [Differentiable Finite State Machines](https://google-research.github.io/self-organising-systems/2022/diff-fsm/)
