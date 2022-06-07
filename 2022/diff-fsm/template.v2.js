@@ -2000,7 +2000,7 @@ d-appendix > distill-appendix {
     return `@misc{${frontMatter.slug},
   author = {${frontMatter.bibtexAuthors}},
   title = {${frontMatter.title}},
-  url = {${frontMatter.t url}},
+  url = {${frontMatter.url}},
   year = {${frontMatter.publishedYear}},
 }`;
   }
