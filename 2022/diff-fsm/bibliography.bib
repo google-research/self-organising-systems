@@ -267,3 +267,48 @@
   url="https://awnihannun.com/writing/automata_ml/automata_in_machine_learning.pdf",
   note         = "Accessed: 2022-3-21"
 }
+
+
+
+@INPROCEEDINGS{Ardakani2020-xy,
+  title     = "Training linear finite-state machines",
+  booktitle = "Proceedings of the 34th International Conference on Neural
+               Information Processing Systems",
+  author    = "Ardakani, Arash and Ardakani, Amir and Gross, Warren J",
+  abstract  = "A finite-state machine (FSM) is a computation model to process
+               binary strings in sequential circuits. Hence, a single-input
+               linear FSM is conventionally used to implement complex
+               single-input functions, such as tanh and exponentiation
+               functions, in stochastic computing (SC) domain where continuous
+               values are represented by sequences of random bits. In this
+               paper, we introduce a method that can train a multi-layer
+               FSM-based network where FSMs are connected to every FSM in the
+               previous and the next layer. We show that the proposed FSM-based
+               network can synthesize multi-input complex functions such as 2D
+               Gabor filters and can perform non-sequential tasks such as image
+               classifications on stochastic streams with no multiplication
+               since FSMs are implemented by look-up tables only. Inspired by
+               the capability of FSMs in processing binary streams, we then
+               propose an FSM-based model that can process time series data
+               when performing temporal tasks such as character-level language
+               modeling. Unlike long short-term memories (LSTMs) that unroll
+               the network for each input time step and perform
+               back-propagation on the unrolled network, our FSM-based model
+               requires to backpropagate gradients only for the current input
+               time step while it is still capable of learning long-term
+               dependencies. Therefore, our FSM-based model can learn extremely
+               long-term dependencies as it requires 1/l memory storage during
+               training compared to LSTMs, where l is the number of time steps.
+               Moreover, our FSM-based model reduces the power consumption of
+               training on a GPU by 33\% compared to an LSTM model of the same
+               size.",
+  publisher = "Curran Associates Inc.",
+  number    = "Article 602",
+  pages     = "7173--7183",
+  series    = "NIPS'20",
+  month     =  dec,
+  year      =  2020,
+  address   = "Red Hook, NY, USA",
+  location  = "Vancouver, BC, Canada",
+  url="https://proceedings.neurips.cc/paper/2020/file/4fc28b7093b135c21c7183ac07e928a6-Paper.pdf"
+}
