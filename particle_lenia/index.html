@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Particle Lenia and the energy-based formulation</title>
+<meta name="description" content="Simple particle-based artificial life-form"/>
+<meta property="article:author" content="Alexander Mordvintsev">
+<meta property="article:author" content="Eyvind Niklasson">
+<meta property="article:author" content="Ettore Randazzo">
+<link rel="icon" type="image/png" sizes="32x32" href="/self-organising-systems/assets/img/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/self-organising-systems/assets/img/favicon-16x16.png">
+<link rel="stylesheet" href="highlight.css">
+<link rel="stylesheet" href="style.css">
+
+<!--  https://dev.twitter.com/cards/types/summary -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Particle Lenia and the energy-based formulation">
+<meta name="twitter:description" content="Simple particle-based artificial life-form">
+<meta name="twitter:url" content="https://google-research.github.io/self-organising-systems/particle-lenia/">
+<meta name="twitter:image" content="lenia_card.jpg">
+<meta name="twitter:image:width" content="640">
+<meta name="twitter:image:height" content="400">
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NXJWS6Y0G1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-NXJWS6Y0G1');
+</script>
+
+<script>
+MathJax = {
+  tex: { inlineMath: [['$', '$']] }
+};
+</script>
+<script type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+<div class="code-cell">
+</div>
+
+<div class="code-cell">
+</div>
+<h1 id="particle-lenia-and-the-energy-based-formulation">Particle Lenia and the energy-based formulation</h1>
+<table>
+<thead>
+<tr>
+<th>Authors</th>
+<th>Affiliation</th>
+<th>Published</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://znah.net">Alexander Mordvintsev</a></td>
+<td><a href="https://ai.google/">Google</a></td>
+<td>December 23, 2022</td>
+</tr>
+<tr>
+<td><a href="https://eyvind.me/">Eyvind Niklasson</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="https://oteret.github.io/">Ettore Randazzo</a></td>
+<td></td>
+<td><a href="https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/notebooks/particle_lenia.ipynb" target="_blank" id="colablink" class="colab-root"><span id="reprotext">Reproduce in </span><span class="colab-span">Notebook</span></a><a id="arxiv" title="ETA Q1 2023" href="about:blank" target="_blank" class="colab-root"><span class="arxiv-span"></span></a></td>
+</tr>
+</tbody>
+</table>
+<div class="code-cell">
+
+        <iframe
+            width="800"
+            height="450"
+            src="https://www.youtube.com/embed/AP3zeHyWakw"
+            frameborder="0"
+            allowfullscreen
+        ></iframe>
+        </div>
+<p id="pdemo">
+<a id="demo" href="https://znah.net/lenia" target="_blank" class="colab-root">DEMO 🔬👾</a><br><br>
+</p>
+<div class="toc">
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#particles-and-fields">Particles and Fields</a></li>
+<li><a href="#energy-analysis">Energy analysis</a></li>
+<li><a href="#other-experiments">Other experiments</a><ul>
+<li><a href="#on-scale-invariance">On scale invariance</a></li>
+<li><a href="#3d-creatures">3D creatures</a></li>
+<li><a href="#giving-particles-voice">Giving particles voice</a></li>
+</ul>
+</li>
+<li><a href="#related-work">Related work</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul>
+</div>
+<h2 id="introduction">Introduction</h2>
+<p>Patterns and behaviors you see in the video above were produced by the artificial life system that we called “Particle Lenia”. It’s inspired by <a href="https://chakazul.github.io/lenia.html">Lenia Mathematical Lifeforms</a>, which in turn is a continuous generalization of John Conway's <a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life">Game of Life</a>. In this article we are going to describe the motivation, implementation and behavior of Particle Lenia.</p>
+<p>Before diving into the details of the proposed model, we would like to speculate a little about why to create such models. Physics, chemistry and biology study the organization of matter at various scales, from subatomic to cosmic. The behavior of each scale is determined by the laws that govern behavior of the underlying scale, but the nature of relations between scales is full of surprises. For example let’s consider a simple idea: matter consists of tiny, constantly moving particles, which attract each other at close distances, but repel when they are too close. <a href="https://en.wikipedia.org/wiki/Lennard-Jones_potential">Lennard-Jones potential</a> is one of possible mathematical formalizations of the above idea. In spite of the apparent simplicity of microscopic dynamics, at large scales these rules give rise to a plethora of complex phenomena, such as aggregate states of matter, thermodynamics, acoustics, hydrodynamics and turbulence. In scientific and engineering practice we can often abstract microscopic details behind macroscopic models, such as diffusion or Navier-Stokes equations, that operate at the scale of interest. But in some domains, like material science or biochemistry, we have to focus on the relationship between many orders of magnitude in scale. How do changes in molecular structure reflect in macroscopic material properties? How do genomic sequences translate into morphological appearance? In the field of biology these ties between scales are especially important and obscure at the same time. That’s why development of practical methods of capturing and analyzing such relations are of a great need. <em>In silico</em> multi-agent models provide a computational playground for creation and improvement of such methods. We may use such models for efficient design of local microscopic rules that lead to a desired global behavior. Thus, creation of simulated Artificial Life serves as a stepping stone in deep understanding of life in the real world.</p>
+<p><a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life">Game of Life</a> cellular automata captivated the attention of a few generations of researchers and hobbyists with a diversity of complex behaviors stemming from a very simple set of local rules. A few continuous generalizations were proposed, <a href="https://www.youtube.com/watch?v=8wDSQxmAyTw">SmoothLife</a> and <a href="https://chakazul.github.io/lenia.html">Lenia</a> are most popular among them. They describe evolution of one or a few scalar fields with a system of PDEs. Such models can support a great diversity of interesting and beautiful life-like behaviors. Yet we argue that PDE-based models have a couple of drawbacks, which motivated the creation of the particle based analogy.</p>
+<div class="code-cell">
+<video controls loop>
+ <source src="00.mp4" type="video/mp4">
+ Your browser does not support the video tag.</video></div>
+<div style="text-align: center;">“Orbium bicaudatus” (Glider) would never meet “Gyrorbium gyrans” (Rotator), because they exist in universes with different laws of physics</div>
+<p>First, SmoothLife and Lenia “creatures” are compact persistent patterns that are defined by both spatial configuration of the field (“morphology”), and parameters of the PDE system that governs its evolution (“laws of physics”). Thus, two creatures can coexist in the same universe only when they are supported by the same set of parameters. Otherwise, some mechanism is required that would modify local simulation rules depending on the spatial field configuration.</p>
+<div class="code-cell">
+<video controls loop>
+ <source src="01.mp4" type="video/mp4">
+ Your browser does not support the video tag.</video></div>
+<div style="text-align: center;">Lack of mass conservation in Lenia often leads to infinite growth</div>
+<p>Second, in their original formulation neither SmoothLife nor Lenia have any conservation laws, which leads to often observed explosive growth or extinction behaviors.</p>
+<p>Recently proposed <a href="https://arxiv.org/abs/2212.07906">Flow Lenia</a> model tries to work around these issues by formulating the PDE system around a flow field that moves the distribution of “matter” in space without creation of a new mass. Authors also propose a method of combining multiple update rules in the same space. Particle Lenia can be seen as another perspective on the Flow Lenia model: we represent moving matter as a population of particles, rather than a scalar field (see <a href="https://en.wikipedia.org/wiki/Lagrangian_and_Eulerian_specification_of_the_flow_field">Lagrangian flow vs. Eulerian</a>).</p>
+<p>We think that particle based representation has a number of attractive properties:</p>
+<ul>
+<li>
+<p>Mass conservation simply follows from the constant number of particles. Grid-based methods need to take special measures to accurately redistribute mass between grid cells.</p>
+</li>
+<li>
+<p>Combining multiple different update rules is possible by attaching them to individual particles (note that we mostly focus on single particle-type models in this article, as we find their behavior sufficiently interesting).</p>
+</li>
+<li>
+<p>Particle based simulation is easy to implement and scales well when switching from 2D to 3D space. </p>
+</li>
+</ul>
+<p>There are quite a few known particle-based artificial life simulations, including the classic <a href="https://en.wikipedia.org/wiki/Boids">Boids</a>, <a href="https://www.nature.com/articles/srep37969">Primordial Particle Systems</a> and many others. We think that the main contribution of this work is to provide a link between the popular Lenia model and particle systems. The proposed artificial life model demonstrates a large diversity of interesting and even beautiful behaviors, even in the case when all particles share the same parameters. We also examine the model dynamics through the lens of a greedy local energy minimization process, and compare the behavior of the model to that of running with an equivalent global energy minimization routine. We find that the difference in behavior between these paradigms is non-intuitive and may have significance for the design of future systems of optimized interacting agents.</p>
+<h2 id="particles-and-fields">Particles and Fields</h2>
+<p>Many classic physics models describe particles that interact through fields they induce. Canonical examples are point charges and electrostatic field, point masses and gravity, or aforementioned <a href="https://en.wikipedia.org/wiki/Lennard-Jones_potential">Lennard-Jones</a> particles. Particle positions define the configuration of the potential field, and the field affects the motion of particles, which accelerate towards the gradient of the potential field. Particle Lenia follows the same principle. In this section we are going to develop and implement Particle Lenia step by step, while contrasting it against the original Lenia model.</p>
+<p>Lenia is a PDE system that describes the evolution of the scalar field $\mathbf{A}$:</p>
+<p>$$\mathbf{A}^{t+\Delta t} = \left[
+ \mathbf{A}^{t} + \Delta t \;G \big(\mathbf{K}*\mathbf{A}^t\big)
+ \right]_0^1$$</p>
+<p>The behavior of the system is defined by the initial state of the field $\mathbf{A}^0$, the scalar <em>growth mapping</em> $G$ and the convolution kernel $\mathbf{K}$. The field $\mathbf{U}^t=\mathbf{K}*\mathbf{A}^t$ is referred to as the <em>potential distribution</em> in the original Lenia paper, and $\mathbf{G}^t=G \big(\mathbf{U}^t\big)$ is called the <em>growth distribution</em>. In this work we are going to use a different naming convention to avoid confusion in the discussion about energy-based interpretation that will follow later. We are going to call $\mathbf{G}^t$ — <em>growth field</em> and $\mathbf{U}^t$ — <em>Lenia field</em>.</p>
+<p><strong>Lenia field.</strong> Particle Lenia is an ODE system in which the scalar field $\mathbf{A}$ is replaced by a population of particles, characterized by their location vectors $\mathbf{p}_i^t$. We can still compute the value of the continuous field $\mathbf{U}^t$ at any point $\mathbf{x}$ by treating each particle as a <a href="https://en.wikipedia.org/wiki/Dirac_delta_function">unit impulse</a> and adding contributions of individual particles:</p>
+<p>$$\mathbf{U}^t(\mathbf{x}) = \sum_i \mathbf{K}(\mathbf{x}-\mathbf{p}_i^t) = \sum_i K\big(\Vert\mathbf{x}-\mathbf{p}_i^t\Vert\big)$$</p>
+<p>$$K(r) = w_K\exp\big({-(r-\mu_K)^2 \big/ \sigma_K^2}\big)$$</p>
+<p>As in Lenia, we choose $\mathbf{K}$ to be radially symmetrical, depending only on the distance from the particle. This symmetry makes the model rotationally equivariant. In this work we use the simplest Lenia kernel, that consists of a single circular (2d) or spherical (3d) shell. The coefficient $w_K$ is selected in such a way that the integral of $\mathbf{K}$ over the whole space equals one.
+<strong>Growth field.</strong> Knowing $\mathbf{U}^t$ we can compute $\mathbf{G}^t=G \big(\mathbf{U}^t\big)$. Like in Lenia, $G$ is a single gaussian peak that "selects" soft range of $\mathbf{U}^t$ values where growth is happening, or in our case, particles are attracted. Originally $G$ had values in $[-1,1]$ range, but in our case, as we show later, only its derivative matters, so additional scaling isn't needed:</p>
+<p>$$G(u) = \exp\big({-(u-\mu_G)^2 \big/ \sigma_G^2}\big)$$</p>
+<p><strong>Repulsion field.</strong> Lenia explicitly bounds values of $\mathbf{A}$ to stay in $[0, 1]$ range. We decided to implement something analogous to this. The lower boundary is trivial because there can't be less than zero particles in any area. We added a repulsion force between particles to limit the maximum particle concentration. The magnitude of force that repels two particles $i \neq j$ is $f_{ij} = f_{ji}= c_\text{rep}\max(1-\Vert\mathbf{p}_i-\mathbf{p}_j\Vert, 0)$, where $c_\text{rep}$ controls the repulsion strength. We can also represent this force with a <em>repulsion potential field</em> $\mathbf{R}^t$:</p>
+<p>$$\mathbf{R}^t(\mathbf{x}) = \frac{c_\text{rep}}{2}\sum_{i: \mathbf{p}_i \neq \mathbf{x}} \max\big(1-\Vert \mathbf{x} - \mathbf{p}_i\Vert,\; 0\big)^2$$</p>
+<p>The gradient of this field equals to the sum of repulsion forces acting on a particular point in space.
+<strong>Motion law.</strong> Particles in our model move against the local gradient of the <em>energy field</em> $\mathbf{E}=\mathbf{R}-\mathbf{G}$. In the language of ODEs it can be simply formulated as:</p>
+<p>$$ \frac{d\mathbf{p}_i}{dt} = -∇\mathbf{E}(\mathbf{p}_i) = -\left[ \frac{∂\mathbf{E}(\mathbf{p}_i)}{∂\mathbf{p}_i} \right]^\top $$</p>
+<p>Particles are trying to minimize repulsion energy $\mathbf{R}$, while seeking for areas with high values for $\mathbf{G}$. Note that they don't have momentum and directly follow in the direction of the applied force. We are trying to get the dynamics similar to the behavior of microscopic organisms in water, where kinetic energy dissipates almost immediately if force not applied.</p>
+<p>Let's express the formulas above with JAX code:</p>
+<div class="code-cell">
+<div class="highlight"><pre><span></span><span class="n">Params</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;Params&#39;</span><span class="p">,</span> <span class="s1">&#39;mu_k sigma_k w_k mu_g sigma_g c_rep&#39;</span><span class="p">)</span>
+<span class="n">Fields</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;Fields&#39;</span><span class="p">,</span> <span class="s1">&#39;U G R E&#39;</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">peak_f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="p">):</span>
+  <span class="k">return</span> <span class="n">jp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x</span><span class="o">-</span><span class="n">mu</span><span class="p">)</span><span class="o">/</span><span class="n">sigma</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">fields_f</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">Params</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+  <span class="n">r</span> <span class="o">=</span> <span class="n">jp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">jp</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">x</span><span class="o">-</span><span class="n">points</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mf">1e-10</span><span class="p">))</span>
+  <span class="n">U</span> <span class="o">=</span> <span class="n">peak_f</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">mu_k</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">sigma_k</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">*</span><span class="n">p</span><span class="o">.</span><span class="n">w_k</span>
+  <span class="n">G</span> <span class="o">=</span> <span class="n">peak_f</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">mu_g</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">sigma_g</span><span class="p">)</span>
+  <span class="n">R</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">c_rep</span><span class="o">/</span><span class="mi">2</span> <span class="o">*</span> <span class="p">((</span><span class="mf">1.0</span><span class="o">-</span><span class="n">r</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+  <span class="k">return</span> <span class="n">Fields</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">E</span><span class="o">=</span><span class="n">R</span><span class="o">-</span><span class="n">G</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">motion_f</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">points</span><span class="p">):</span>
+  <span class="n">grad_E</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span> <span class="n">fields_f</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">E</span><span class="p">)</span>
+  <span class="k">return</span> <span class="o">-</span><span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">grad_E</span><span class="p">)(</span><span class="n">points</span><span class="p">)</span>
+</pre></div>
+
+</div>
+<p><strong>That's it.</strong> <code>fields_f</code> function, given the system parameters and positions of particles, computes values of all fields described earlier at the point <code>x</code>. <code>motion_f</code> combines <code>grad</code> and <code>vmap</code> to compute velocities of all points at a given system state.</p>
+<p>Now we can simply pick some parameter values, sample random points and apply and ODE integrator (even Euler would work):</p>
+<div class="code-cell">
+</div>
+
+<div class="code-cell">
+<div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">Params</span><span class="p">(</span><span class="n">mu_k</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">sigma_k</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">w_k</span><span class="o">=</span><span class="mf">0.022</span><span class="p">,</span> <span class="n">mu_g</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">sigma_g</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">c_rep</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">key</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">points0</span> <span class="o">=</span> <span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span><span class="o">-</span><span class="mf">0.5</span><span class="p">)</span><span class="o">*</span><span class="mf">12.0</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">0.1</span>
+
+<span class="k">def</span> <span class="nf">odeint_euler</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+  <span class="k">def</span> <span class="nf">step_f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">_</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">+</span><span class="n">dt</span><span class="o">*</span><span class="n">f</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">x</span>
+  <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">step_f</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="n">rotor_story</span> <span class="o">=</span> <span class="n">odeint_euler</span><span class="p">(</span><span class="n">motion_f</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">points0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="mi">10000</span><span class="p">)</span>
+<span class="n">animate_lenia</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">rotor_story</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;rotor.mp4&#39;</span><span class="p">)</span>
+</pre></div>
+
+<video controls loop>
+ <source src="02.mp4" type="video/mp4">
+ Your browser does not support the video tag.</video></div>
+<p>Left plot shows <em>lenia</em> field $\mathbf{U}$ in blue, with yellow overlay $\mathbf{G}$. Right visualization shows the evolution of the "energy" field $\mathbf{E}$. White color corresponds to the empty space energy level equal to $G(0)$. Red areas show higher energy levels produced by the repulsion field $\mathbf{R}$. In green areas the growth field $\mathbf{G}$ outweighs repulsion. The black dash on the colorbar corresponds to the average value of $\mathbf{E}$ at current particle locations.</p>
+<p>We see these simple rules can produce complex and interesting behaviors. The system undergoes a sequence of transitions through complex formations, some of which look almost stable and ends up in a spinning attractor. Different random seeds produce different scenarios and sometimes even lead to a different final state.</p>
+<h2 id="energy-analysis">Energy analysis</h2>
+<p>The total system energy that we express as $E_\text{total}=\sum_i \mathbf{E}(\mathbf{p}_i)$ provides an interesting perspective on the system dynamics:</p>
+<div class="code-cell">
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">point_fields_f</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">points</span><span class="p">):</span>
+  <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">fields_f</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">points</span><span class="p">))(</span><span class="n">points</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">total_energy_f</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">points</span><span class="p">):</span>
+  <span class="k">return</span> <span class="n">point_fields_f</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">points</span><span class="p">)</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</pre></div>
+
+</div>
+
+<div class="code-cell">
+<img src="03.png"></div>
+<p>As we see, the total system energy is mostly decreasing through a series of phase transitions between different formations. Nevertheless there are intervals where the energy is increasing. Why is this happening? Shouldn't the system that follows the energy gradient, eventually find a stable local minima? Turns out that there is one subtle detail which makes the dynamics much more interesting. Each particle greedily minimizes its <em>own energy</em> without considering its influence on other particles. We can propose a different motion rule, where all particles move in the direction that minimizes the <em>total energy</em>:</p>
+<p>$$ \frac{d\mathbf{p}_i}{dt} = - \left[ \frac{∂E_\text{total}}{∂\mathbf{p}_i} \right]^\top = - \left[ \frac{∂ \sum_j \mathbf{E}(\mathbf{p}_j)}{∂\mathbf{p}_i} \right]^\top$$</p>
+<p>We can easily express this intent using automatic differentiation:</p>
+<div class="code-cell">
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">total_motion_f</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">points</span><span class="p">):</span>
+  <span class="k">return</span> <span class="o">-</span><span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">total_energy_f</span><span class="p">,</span> <span class="n">params</span><span class="p">))(</span><span class="n">points</span><span class="p">)</span>
+</pre></div>
+
+</div>
+<p>In the following video we run the global energy descent for the first 2000 steps, then switch to the local descent. We can see that the global optimization indeed drives the system into a stable low-energy state. Once we switch to the local rule, the system escapes this state and enters a dynamic attractor similar to the one from the previous simulation.</p>
+<div class="code-cell">
+<video controls loop>
+ <source src="04.mp4" type="video/mp4">
+ Your browser does not support the video tag.</video></div>
+
+<div class="code-cell">
+<img src="05.png"></div>
+<p>If we compare energy plots from two simulations, we see that the global descent finds a much lower energy state that can't be sustained by the local update rule. Nevertheless we focus on the local descent rule because we think that it produces much more interesting and diverse structures and behaviors. Even more surprisingly, it was recently shown (<a href="https://www.deepmind.com/blog/game-theory-as-an-engine-for-large-scale-data-analysis">EigenGame</a>) that in some cases multi-agent local optimization opens new perspectives on solving well known computational problems, such as PCA.</p>
+<p>Energy evolution analysis opens ways to quickly compare and spot patterns and irregularities in large ensembles of Particle Lenia simulations. For example, the figure below shows energy histories of 100 simulations that only differ by random seed used to sample starting point positions. We also show final configurations of four selected runs.</p>
+<div class="code-cell">
+<img src="06.png"><img src="07.jpeg"></div>
+<h2 id="other-experiments">Other experiments</h2>
+<h3 id="on-scale-invariance">On scale invariance</h3>
+<p>Original Lenia is a PDE system, which means that in order to simulate it on a computer we have to discretize the space somehow. It was shown that Lenia creatures can exist on regular and even non-regular grids of various resolutions. Of course, discretization artifacts can't be completely neglected, for example some behaviors can't exist if the grid resolution is too low, while other behaviors may exploit the raster grid structure and exist at low resolutions only.</p>
+<p>In Particle Lenia, the number of particles can be seen as an analog to the grid resolution. In this section we try to see if it's possible to reproduce a specific pattern with a different number of particles. Consider a 200-particle "rotor" pattern we discovered in the previous section (third from left on the figure above). Let's apply following transformations to it:</p>
+<ul>
+<li>
+<p>Scale point coordinates and extent of the kernel $\mathbf{K}$ by two: $\mathbf{p}'_i = 2\mathbf{p}_i, \mu_K'=2\mu_K, \sigma_K'=2\sigma_K$. It's easy to see that this transformation doesn't change the values of $\mathbf{U}$ (and thus $\mathbf{G}=G(\mathbf{U})$) perceived by particles, but they are distributed much sparser now, so repulsion forces have weakened or vanished.</p>
+</li>
+<li>
+<p>Replace each particle with four new ones to restore density and repulsion force. The previous step increased the area covered by the formation four times. Now we replace each particle with four new ones, distributed around the old particle position in a rotated cross fashion (similar to the <a href="https://blog.demofox.org/2015/04/23/4-rook-antialiasing-rgss/">rotated grid super-sampling</a>)</p>
+</li>
+<li>
+<p>Fix the range of $\mathbf{U}$. The previous step quadrupled the number of particles, which in turn made values of $\mathbf{U}$ four times larger on average. To compensate, we may either set $w_K' = w_K/4$, or adjust $\mu_G'=4\mu_G, \sigma_G'=4\sigma_G$. We prefer to use the former method.</p>
+</li>
+</ul>
+<p>The above procedure is implemented in the following code. Let's try to upscale the third pattern from the previous diagram:</p>
+<div class="code-cell">
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">upscale_lenia</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">Params</span><span class="p">,</span> <span class="n">points</span><span class="p">):</span>
+  <span class="n">params2</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="n">mu_k</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">mu_k</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="n">sigma_k</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">sigma_k</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="n">w_k</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">w_k</span><span class="o">/</span><span class="mi">4</span><span class="p">)</span>
+  <span class="n">offsets</span> <span class="o">=</span> <span class="n">jp</span><span class="o">.</span><span class="n">float32</span><span class="p">([[</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">3</span><span class="p">]])</span><span class="o">/</span><span class="mi">6</span>
+  <span class="n">points2</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span><span class="p">[:,</span><span class="kc">None</span><span class="p">,:]</span><span class="o">*</span><span class="mi">2</span> <span class="o">+</span> <span class="n">offsets</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">params2</span><span class="p">,</span> <span class="n">points2</span>
+
+<span class="n">params2</span><span class="p">,</span> <span class="n">points2</span> <span class="o">=</span> <span class="n">upscale_lenia</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">stories</span><span class="p">[</span><span class="mi">52</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">story2</span> <span class="o">=</span> <span class="n">odeint_euler</span><span class="p">(</span><span class="n">motion_f</span><span class="p">,</span> <span class="n">params2</span><span class="p">,</span> <span class="n">points2</span><span class="p">,</span> <span class="n">dt</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="mi">10000</span><span class="p">)</span>
+<span class="n">animate_lenia</span><span class="p">(</span><span class="n">params2</span><span class="p">,</span> <span class="n">story2</span><span class="p">,</span> <span class="n">rate</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">w</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span> <span class="n">show_UG</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+
+<video controls loop>
+ <source src="08.mp4" type="video/mp4">
+ Your browser does not support the video tag.</video></div>
+<p>The proposed method allowed us to reproduce the 200-particle "rotor" behavior with 800 particles. Note that in general we are not guaranteed to succeed, as some patterns may depend on the granularity of the "matter" to function properly. We also observed that the "rotor" is quite sensitive to small perturbations and can easily fall into a lower energy attractor.</p>
+<p>You may notice that the set of parameters we use is a bit redundant. In particular, multiplying $w_K$ and dividing $\mu_G$ and $\sigma_G$ by the same coefficient doesn't have an impact on the system dynamics. To keep $\mu_G$ and $\sigma_G$ in the same range across different scales, we use numerical integration to normalize the kernel $\mathbf{K}$:</p>
+<div class="code-cell">
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">calc_K_weight</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">dim_n</span><span class="p">):</span>
+  <span class="n">r</span> <span class="o">=</span> <span class="n">jp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">mu</span><span class="o">-</span><span class="n">sigma</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">mu</span><span class="o">+</span><span class="n">sigma</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span> <span class="mi">51</span><span class="p">)</span>
+  <span class="n">y</span> <span class="o">=</span> <span class="n">peak_f</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span> <span class="o">*</span> <span class="n">r</span><span class="o">**</span><span class="p">(</span><span class="n">dim_n</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+  <span class="n">s</span> <span class="o">=</span> <span class="n">jp</span><span class="o">.</span><span class="n">trapz</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span> <span class="o">*</span> <span class="p">{</span><span class="mi">2</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">}[</span><span class="n">dim_n</span><span class="p">]</span> <span class="o">*</span> <span class="n">jp</span><span class="o">.</span><span class="n">pi</span>
+  <span class="k">return</span> <span class="mf">1.0</span><span class="o">/</span><span class="n">s</span>
+
+<span class="k">def</span> <span class="nf">create_params</span><span class="p">(</span><span class="n">m_k</span><span class="p">,</span> <span class="n">s_k</span><span class="p">,</span> <span class="n">m_g</span><span class="p">,</span> <span class="n">s_g</span><span class="p">,</span> <span class="n">rep</span><span class="p">,</span> <span class="n">dim_n</span><span class="p">):</span>
+  <span class="n">w_k</span> <span class="o">=</span> <span class="n">calc_K_weight</span><span class="p">(</span><span class="n">m_k</span><span class="p">,</span> <span class="n">s_k</span><span class="p">,</span> <span class="n">dim_n</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">Params</span><span class="p">(</span><span class="n">m_k</span><span class="p">,</span> <span class="n">s_k</span><span class="p">,</span> <span class="n">w_k</span><span class="p">,</span> <span class="n">m_g</span><span class="p">,</span> <span class="n">s_g</span><span class="p">,</span> <span class="n">rep</span><span class="p">)</span>
+</pre></div>
+
+</div>
+<h3 id="3d-creatures">3D creatures</h3>
+<p>One of the benefits of particle-based approaches is the ease of scaling to higher dimensions. The Lenia code we wrote above can simulate behavior of 3D particles without modification. By the way, 3D rendering is implemented in pure JAX, please refer to <a href="https://google-research.github.io/self-organising-systems/2022/jax-raycast/">this article</a> for details.</p>
+<div class="code-cell">
+</div>
+
+<div class="code-cell">
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">sample_ball</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="mf">8.4</span><span class="p">,</span> <span class="n">dim_n</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+  <span class="n">k1</span><span class="p">,</span> <span class="n">k2</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+  <span class="n">pos</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">k1</span><span class="p">,</span> <span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">dim_n</span><span class="p">]))</span>
+  <span class="k">return</span> <span class="n">pos</span> <span class="o">*</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">k2</span><span class="p">,</span> <span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">dim_n</span><span class="p">)</span><span class="o">*</span><span class="n">R</span>
+
+<span class="n">params3d</span> <span class="o">=</span> <span class="n">create_params</span><span class="p">(</span><span class="mf">4.3</span><span class="p">,</span> <span class="mf">1.1</span><span class="p">,</span> <span class="mf">0.23</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">dim_n</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">key</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">13</span><span class="p">)</span>
+<span class="n">points</span> <span class="o">=</span> <span class="n">sample_ball</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+<span class="n">story3d</span> <span class="o">=</span> <span class="n">odeint_euler</span><span class="p">(</span><span class="n">motion_f</span><span class="p">,</span> <span class="n">params3d</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mi">15000</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">VideoWriter</span><span class="p">()</span> <span class="k">as</span> <span class="n">vid</span><span class="p">:</span>
+  <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">story3d</span><span class="p">[::</span><span class="mi">20</span><span class="p">]):</span>
+    <span class="n">vid</span><span class="p">(</span><span class="n">render_lenia3d</span><span class="p">(</span><span class="n">params3d</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span>
+        <span class="n">camera_pos</span><span class="o">=</span><span class="n">jp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">jp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">i</span><span class="o">/</span><span class="mi">100</span><span class="p">),</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">jp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">i</span><span class="o">/</span><span class="mi">100</span><span class="p">)])</span><span class="o">*</span><span class="mf">13.</span><span class="p">))</span>
+</pre></div>
+
+<video controls loop>
+ <source src="09.mp4" type="video/mp4">
+ Your browser does not support the video tag.</video></div>
+<p>This video highlights another aspect of Particle Lenia. Particles are initially uniformly scattered in space. Then a cluster with organized structure starts to grow. The shape and behavior of this cluster dramatically changes as it absorbs more particles. Eventually particles assemble into a mushroom-shaped glider that slowly drifts away. It seems that this shape is an attractor for a given set of Lenia parameters and number of points, as running simulation with different initial conditions produces the similar gliders, flying in different directions.</p>
+<h3 id="giving-particles-voice">Giving particles voice</h3>
+<p>While working on this article we experimented with various ways of visualizing particles and fields surrounding them. We also thought that it might be interesting to create a kind of audio representation of the particle system state. The process of turning data into sounds is often called <a href="https://en.wikipedia.org/wiki/Sonification">sonification</a>. We tried a simple method when every particle is given a voice, which has a frequency depending on the particle potential energy and volume is proportional to the particle current speed. The video below shows an example sonification of the simulation from the beginning of this article.</p>
+<div class="code-cell">
+<video controls loop>
+ <source src="10.mp4" type="video/mp4">
+ Your browser does not support the video tag.</video></div>
+<h2 id="related-work">Related work</h2>
+<p>The text above contains a number of references to other works, which we would like to summarize and categorize in this section.</p>
+<p><strong>Lenia and Flow Lenia</strong> Particle Lenia was directly inspired by Flow Lenia (<a href="https://arxiv.org/abs/2212.07906">arxiv</a>, <a href="https://colab.research.google.com/drive/14nw3aK5aOMH_brKYdRsXHKt0OgK1RteK?usp=sharing">colab</a>, <a href="https://sites.google.com/view/flowlenia/">videos</a>) and is designed with the same goals in mind (mass conservation and multiple species in the same world). Our model description closely follows terminology and notation used in original Lenia paper (<a href="https://arxiv.org/abs/1812.05433">arxiv</a>, <a href="https://www.youtube.com/watch?v=iE46jKYcI4Y">video</a>). We would also like to mention the Lenia Expanded Universe (<a href="https://arxiv.org/abs/2005.03742">arxiv</a>, <a href="https://www.youtube.com/watch?v=HT49wpyux-k">video</a>) and <a href="https://developmentalsystems.org/sensorimotor-lenia/">Sensorimotor Lenia</a> articles, because they provide a clear path for future development of our work.</p>
+<p><strong>Energy-based models</strong> The energy-based formulation of Particle Lenia is inspired by a number of classic models from physics and chemistry. <a href="https://en.wikipedia.org/wiki/Lennard-Jones_potential">Lennard Jones potential</a> is a classic example of a system that combines attractive and repulsive potential fields. Energy terms of the <a href="https://en.wikipedia.org/wiki/Embedded_atom_model">Embedded Atom Model</a> have even greater similarity to the Particle Lenia energy. The biggest difference of our model is the lack of momentum; the assumption that particles are effectively moving through a viscous substance that quickly dissipates kinetic energy. We also think it is worth mentioning <a href="https://github.com/jax-md/jax-md">JAX MD</a> that implements a number of molecular models using JAX differentiable programing framework.</p>
+<p><strong>Particle-based artificial life</strong> Artificial Life literature is full of examples of simple muliagent models that have sophisticated behaviors. This phenomena is often refered to as <a href="https://en.wikipedia.org/wiki/Emergence">emergence</a>, <a href="https://en.wikipedia.org/wiki/Self-organization">self-organization</a> or <a href="https://en.wikipedia.org/wiki/Swarm_intelligence">swarm intelligence</a>. <a href="https://www.red3d.com/cwr/boids/">Boids</a> model of flocking is a classic example from that category. There are plenty other interesting examples, such as <a href="https://www.nature.com/articles/srep37969">Primordial Particle Systems</a> and <a href="https://www.ventrella.com/Clusters">models</a> <a href="https://www.youtube.com/watch?v=0Kx4Y9TVMGg">based</a> based on non-reciprocal forces between different particle types. Other models try to mimic  pheromone signaling through the environment (e.g. <a href="https://cargocollective.com/sagejenson/physarum">Physarum</a> model).</p>
+<p><strong>Multi-agent optimization</strong> Particle Lenia model can be interpreted as a collective of agents that try to minimize their individual objective functions. This gives rise to behaviors that have dramatically different characteristics from global energy minimization. Recent work on <a href="https://www.deepmind.com/blog/game-theory-as-an-engine-for-large-scale-data-analysis">EigenGame</a> provides an interesting example when local multi-agent optimization has a number of desirable traits in comparison to global optimization. These traits enable new ways of solving classic computational problems.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>In this article we described Particle Lenia, a new particle system ODE-based artificial life model that is inspired by the Lenia PDE system.</p>
+<p><strong>Interactive demo and collecting creatures.</strong> The introduction video shows a few creatures and behaviors we found by varying Particle Lenia parameters. These creatures were discovered using the interactive <a href="https://znah.net/lenia">browser-based demo</a>. We invite readers to participate in finding new creatures and sharing them on social media. Preview images created by the demo contain all information needed to bring them into life again, simply drag and drop the image file into the demo window!</p>
+<p><strong>Future work</strong> The obvious bit that is missing from this article are multi-creature/multi-particle types experiments. Although the model simulation code can be trivially extended to support per-particle parameters, we decided to leave this exploration for the future. Another promising future work direction is goal driven search for patterns and rules capable of forming specific patterns or performing specific tasks, in the spirit of <a href="https://developmentalsystems.org/sensorimotor-lenia/">Sensorimotor Lenia</a>. We believe that these principles of particle swarm design can later be applied to real world self-organizing systems.</p>
+<p><strong>Reproducibility</strong> All experiments and diagrams in this article were produced using this <a href="https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/notebooks/particle_lenia.ipynb">colab notebook</a>. The <a href="https://youtu.be/AP3zeHyWakw">introduction video</a> demonstrates a number of creatures that were discovered, and can be explored in the supplementary <a href="https://znah.net/lenia">interactive demo</a></p>
+<p><strong>Acknowledgements</strong> We would like to thank <a href="https://chakazul.github.io/">Bert Chan</a> and <a href="https://flowers.inria.fr/">INRIA Flowers</a> team for inspiring this work and providing early feedback.</p>
+<p><strong>Citing Particle Lenia</strong> For attribution in academic contexts, please cite the arxiv version of this article (to be released Q1 2023)</p>

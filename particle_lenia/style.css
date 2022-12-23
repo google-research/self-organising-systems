@@ -1,0 +1,203 @@
+* {
+}
+html {
+    font-size: 16px;
+    font-family: sans-serif;
+     line-height: 1.6em; 
+}
+body {
+  margin: 0 auto;
+  max-width: 60rem;
+}
+div,p,h1,h2,h3 {
+    margin: 10px 10px 10px 10px;
+}
+h1,h2,h3 {
+    margin-top: 30px;
+    margin-bottom: 10px;
+    line-height: 1.3em;
+}
+h1 {font-size: 3.0rem;}
+h2 {font-size: 2.0rem;}
+h3 {font-size: 1.5rem;}
+
+table:nth-of-type(1) {
+    width: 100%;
+    text-align: left;
+    font-size: smaller;
+    margin: 10px;
+    padding-bottom: 5px;
+    padding-top: 5px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+table:nth-of-type(1) * {
+    padding: 0;
+    margin: 0;
+}
+
+table:nth-of-type(1) td {
+    line-height: 1.6em;
+}
+
+table:nth-of-type(1) a {
+    text-decoration: none;
+    color: black;
+    margin: 0;
+}
+
+th {
+    font-weight: lighter;
+}
+
+table:nth-of-type(1) td:first-child {
+    font-weight: bold;
+}
+
+.output,.highlight {
+    display: block;
+    overflow-x: auto;
+    margin-top: 10px;
+    line-height: 1em;
+    padding-bottom: 8px;
+}
+.code-cell {
+    margin: 20px 0 20px 0;
+    display: block;
+}
+.output {
+    font-size: 80%;
+}
+.highlight {
+    font-size: 90%;
+    line-height: 1.2em;
+}
+pre {
+    display: inline;
+}
+img,video,iframe {
+    display:block;
+    margin: auto;
+    max-width:90%;
+}
+
+.highlight .err {
+    border: 0px;
+}
+
+#pdemo {
+    text-align: center;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+#repro {
+    text-align: left;
+}
+
+.colab-root {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.75);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px!important;
+    text-decoration: none;
+    color: #aaa;
+    font-weight: 500;
+    border: solid 1px rgba(0, 0, 0, 0.08);
+    border-bottom-color: rgba(0, 0, 0, 0.15);
+    text-transform: uppercase;
+    line-height: 16px;
+}
+
+span.colab-span {
+    background-image: url(colab.svg);
+    background-repeat: no-repeat;
+    background-size: 20px;
+    background-position-y: 1px;
+    display: inline-block;
+    padding-left: 24px;
+}
+
+#arxiv {
+    background-image: url(arxiv.svg);
+    vertical-align: bottom;
+    background-repeat: no-repeat;
+    background-size: 30px;
+    background-position: center;
+    padding-left: 40px;
+    /* padding-top: 6px; */
+    padding-bottom: 20px;
+    filter: opacity(0.3);
+    cursor: not-allowed;
+    /* margin-left: 10px; */
+    /*    background-color: #b31b1b;*/
+}
+
+#demo {
+    font-size: 25px!important;
+    font-weight: bold;
+    padding: 12px 12px;
+    background-color: #4a9cda;
+    color: #f5d36b;
+    border: solid 1px rgba(0, 0, 0, 0.25);
+    border-bottom-color: rgba(0, 0, 0, 0.55);
+}
+
+.toc a {
+    text-decoration: none;
+    color: black;
+}
+
+.toc a:hover {
+    text-decoration: underline;
+    color: black;
+}
+
+.toc ul {
+    list-style-type: none;
+    padding-left: 10px;
+/*    list-style-position: inside;*/
+/*    padding: 0;*/
+/*    margin: 0;*/
+}
+
+.toc ul ul {
+    padding-left: 15px;
+    font-size: smaller;
+}
+
+
+@media(max-width: 1440px) {
+    .toc {
+        display: none;
+    }
+}
+
+@media(max-width: 800px) {
+    h1 {
+      font-size: 1.8rem;
+    }
+
+    #reprotext {
+      display: none;
+    }
+
+}
+
+.toc {
+    /* The CSS applied to our floating application */
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
+    padding-right: 20px;
+    position: sticky; /*relative;*/
+    /*    bottom: 10px;*/
+    background-color: white;
+    /*    left: 200px;*/
+    float: left;
+    margin-left: -200px;
+    /*left: -200px;*/
+}
+
+#colablink {
+    padding: 2px 4px;
+}
