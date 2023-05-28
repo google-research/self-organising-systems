@@ -1,5 +1,5 @@
 # Transformers learn in-context by gradient descent
-Notebooks for easy replication of the results in the paper **Transformers learn in-context by gradient descent**.
+Notebooks for easy replication of the results in the paper [**Transformers learn in-context by gradient descent**](https://arxiv.org/abs/2212.07677).
 
 As the naming suggests, the three notebooks can be used to reproduce the results for the
 
