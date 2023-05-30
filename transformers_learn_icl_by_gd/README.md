@@ -7,11 +7,8 @@ As the naming suggests, the three notebooks can be used to reproduce the results
 2. usual token construction where we provide in- and outputs in neighbouring tokens.
 3. experiments on non-linear regression tasks.
 
-You can also use the following links to run the notebooks in Google colab.
+You can also use the following links to run the notebooks in Google Colab.
 
-1. https://colab.research.google.com/github/google-research/self-organising-systems/transformers_learn_icl_by_gd
-/blob/main/normal_token_construct.ipynb
-2. https://colab.research.google.com/github/google-research/self-organising-systems/transformers_learn_icl_by_gd
-/blob/main/constructed_token_setup.ipynb
-3. https://colab.research.google.com/github/google-research/self-organising-systems/transformers_learn_icl_by_gd
-/blob/main/non_linear_regression.ipynb
+1. [normal_token_construct.ipynb](https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/transformers_learn_icl_by_gd/normal_token_construct.ipynb)
+2. [constructed_token_setup.ipynb](https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/transformers_learn_icl_by_gd/constructed_token_setup.ipynb)
+3. [non_linear_regression.ipynb](https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/transformers_learn_icl_by_gd/non_linear_regression.ipynb)
