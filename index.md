@@ -3,8 +3,7 @@ This page is intended as an introduction and ongoing status page for a research 
 ## Publications
 
 {% for publication in site.data.publications %}
-- [{{ publication.name }}]({{ publication.url }})
-{% endfor %}
+- [{{ publication.name }}]({{ publication.url }}) {% endfor %}
 
 ## Tutorials
 
