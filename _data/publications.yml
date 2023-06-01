@@ -13,7 +13,7 @@
 - name: Reaction-Diffusion
   url: "https://arxiv.org/abs/2107.06862"
   published: 2021-06-22
-- name: muNCA
+- name: µNCA
   url: "https://arxiv.org/abs/2111.13545"
   published: 2021-11-26
 - name: Isotropic NCA
