@@ -2,8 +2,9 @@ This page is intended as an introduction and ongoing status page for a research 
 
 ## Publications
 
-{% for publication in site.data.publications %}
-- [{{ publication.name }}]({{ publication.url }}) {% endfor %}
+{% assign sorted_pubs = site.data.publications | sort: 'published' | reverse %}
+{% for publication in sorted_pubs %}
+- [{{ publication.name }}]({{ publication.url }}) | {{ publication.published | date: "%-d %B %Y" }} {% endfor %}
 
 ## Tutorials
 
