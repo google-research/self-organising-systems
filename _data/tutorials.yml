@@ -1,0 +1,6 @@
+- name: Simple 3D Visualization with JAX Raycasting
+  url: "https://google-research.github.io/self-organising-systems/2022/jax-raycast/"
+  published: 2022-09-23
+- name: Differentiable Finite State Machines
+  url: "https://google-research.github.io/self-organising-systems/2022/diff-fsm/"
+  published: 2022-06-06
