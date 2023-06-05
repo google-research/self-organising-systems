@@ -8,5 +8,6 @@ This page is intended as an introduction and ongoing status page for a research 
 
 ## Tutorials
 
-- 2022-09-23 [Simple 3D visualization with JAX raycasting](https://google-research.github.io/self-organising-systems/2022/jax-raycast/)
-- 2022-06-06 [Differentiable Finite State Machines](https://google-research.github.io/self-organising-systems/2022/diff-fsm/)
+{% assign sorted_tuts = site.data.tutorials | sort: 'published' | reverse %}
+{% for tutorial in sorted_tuts %}
+- [{{ tutorial.name }}]({{ tutorial.url }}) \| {{ tutorial.published | date: "%-d %B %Y" }} {% endfor %}
