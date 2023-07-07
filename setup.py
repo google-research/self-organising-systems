@@ -13,6 +13,9 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/google-research/self-organizing-systems",
     packages=setuptools.find_packages(),
+    install_requires=[
+        "evojax",  # biomakerca dependency
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
     ],
