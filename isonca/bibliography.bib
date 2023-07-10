@@ -1,0 +1,233 @@
+
+@INPROCEEDINGS{Mordvintsev2022-hw,
+  title           = "Growing Isotropic Neural Cellular Automata",
+  booktitle       = "The 2022 Conference on Artificial Life",
+  author          = "Mordvintsev, Alexander and Randazzo, Ettore and Fouts,
+                     Craig",
+  publisher       = "MIT Press",
+  year            =  2022,
+  url             = "https://direct.mit.edu/isal/proceedings-pdf/isal/34/65/2035305/isal_a_00552.pdf",
+  address         = "Cambridge, MA",
+  conference      = "The 2022 Conference on Artificial Life",
+  location        = "Online",
+  doi             = "10.1162/isal\_a\_00552"
+}
+
+@ARTICLE{Randazzo2023-oc,
+  title         = "Growing Steerable Neural Cellular Automata",
+  author        = "Randazzo, Ettore and Mordvintsev, Alexander and Fouts, Craig",
+  abstract      = "Neural Cellular Automata (NCA) models have shown remarkable
+                   capacity for pattern formation and complex global behaviors
+                   stemming from local coordination. However, in the original
+                   implementation of NCA, cells are incapable of adjusting
+                   their own orientation, and it is the responsibility of the
+                   model designer to orient them externally. A recent isotropic
+                   variant of NCA (Growing Isotropic Neural Cellular Automata)
+                   makes the model orientation-independent - cells can no
+                   longer tell up from down, nor left from right - by removing
+                   its dependency on perceiving the gradient of spatial states
+                   in its neighborhood. In this work, we revisit NCA with a
+                   different approach: we make each cell responsible for its
+                   own orientation by allowing it to ``turn'' as determined by
+                   an adjustable internal state. The resulting Steerable NCA
+                   contains cells of varying orientation embedded in the same
+                   pattern. We observe how, while Isotropic NCA are
+                   orientation-agnostic, Steerable NCA have chirality: they
+                   have a predetermined left-right symmetry. We therefore show
+                   that we can train Steerable NCA in similar but simpler ways
+                   than their Isotropic variant by: (1) breaking symmetries
+                   using only two seeds, or (2) introducing a
+                   rotation-invariant training objective and relying on
+                   asynchronous cell updates to break the up-down symmetry of
+                   the system.",
+  month         =  feb,
+  year          =  2023,
+  url           = "http://arxiv.org/abs/2302.10197",
+  archivePrefix = "arXiv",
+  eprint        = "2302.10197",
+  primaryClass  = "cs.NE",
+  arxivid       = "2302.10197"
+}
+
+@ARTICLE{Gala2023-bk,
+  title         = "E(n)-equivariant Graph Neural Cellular Automata",
+  author        = "Gala, Gennaro and Grattarola, Daniele and Quaeghebeur, Erik",
+  abstract      = "Cellular automata (CAs) are computational models exhibiting
+                   rich dynamics emerging from the local interaction of cells
+                   arranged in a regular lattice. Graph CAs (GCAs) generalise
+                   standard CAs by allowing for arbitrary graphs rather than
+                   regular lattices, similar to how Graph Neural Networks
+                   (GNNs) generalise Convolutional NNs. Recently, Graph Neural
+                   CAs (GNCAs) have been proposed as models built on top of
+                   standard GNNs that can be trained to approximate the
+                   transition rule of any arbitrary GCA. Existing GNCAs are
+                   anisotropic in the sense that their transition rules are not
+                   equivariant to translation, rotation, and reflection of the
+                   nodes' spatial locations. However, it is desirable for
+                   instances related by such transformations to be treated
+                   identically by the model. By replacing standard graph
+                   convolutions with E(n)-equivariant ones, we avoid anisotropy
+                   by design and propose a class of isotropic automata that we
+                   call E(n)-GNCAs. These models are lightweight, but can
+                   nevertheless handle large graphs, capture complex dynamics
+                   and exhibit emergent self-organising behaviours. We showcase
+                   the broad and successful applicability of E(n)-GNCAs on
+                   three different tasks: (i) pattern formation, (ii) graph
+                   auto-encoding, and (iii) simulation of E(n)-equivariant
+                   dynamical systems.",
+  month         =  jan,
+  year          =  2023,
+  url           = "http://arxiv.org/abs/2301.10497",
+  archivePrefix = "arXiv",
+  eprint        = "2301.10497",
+  primaryClass  = "cs.LG",
+  arxivid       = "2301.10497"
+}
+
+@ARTICLE{Grattarola2021-qe,
+  title         = "Learning Graph Cellular Automata",
+  author        = "Grattarola, Daniele and Livi, Lorenzo and Alippi, Cesare",
+  abstract      = "Cellular automata (CA) are a class of computational models
+                   that exhibit rich dynamics emerging from the local
+                   interaction of cells arranged in a regular lattice. In this
+                   work we focus on a generalised version of typical CA, called
+                   graph cellular automata (GCA), in which the lattice
+                   structure is replaced by an arbitrary graph. In particular,
+                   we extend previous work that used convolutional neural
+                   networks to learn the transition rule of conventional CA and
+                   we use graph neural networks to learn a variety of
+                   transition rules for GCA. First, we present a
+                   general-purpose architecture for learning GCA, and we show
+                   that it can represent any arbitrary GCA with finite and
+                   discrete state space. Then, we test our approach on three
+                   different tasks: 1) learning the transition rule of a GCA on
+                   a Voronoi tessellation; 2) imitating the behaviour of a
+                   group of flocking agents; 3) learning a rule that converges
+                   to a desired target state.",
+  month         =  oct,
+  year          =  2021,
+  url           = "http://arxiv.org/abs/2110.14237",
+  archivePrefix = "arXiv",
+  eprint        = "2110.14237",
+  primaryClass  = "cs.LG",
+  arxivid       = "2110.14237"
+}
+
+@ARTICLE{Mordvintsev2020-qs,
+  title     = "Growing Neural Cellular Automata",
+  author    = "Mordvintsev, Alexander and Randazzo, Ettore and Niklasson,
+               Eyvind and Levin, Michael",
+  journal   = "Distill",
+  publisher = "Distill Working Group",
+  volume    =  5,
+  number    =  2,
+  month     =  feb,
+  year      =  2020,
+  url       = "https://distill.pub/2020/growing-ca",
+  issn      = "2476-0757",
+  doi       = "10.23915/distill.00023"
+}
+
+
+@ARTICLE{Proshchina2021-jx,
+  title    = "Reproduction and the Early Development of Vertebrates in Space:
+              Problems, Results, Opportunities",
+  author   = "Proshchina, Alexandra and Gulimova, Victoria and Kharlamova,
+              Anastasia and Krivova, Yuliya and Besova, Nadezhda and Berdiev,
+              Rustam and Saveliev, Sergey",
+  abstract = "Humans and animals adapt to space flight conditions. However, the
+              adaptive changes of fully formed organisms differ radically from
+              the responses of vertebrate embryos, foetuses, and larvae to
+              space flight. Development is associated with active cell
+              proliferation and the formation of organs and systems. The
+              instability of these processes is well known. Over 20 years has
+              passed since the last systematic experiments on vertebrate
+              reproduction and development in space flight. At the same time,
+              programs are being prepared for the exploration of Mars and the
+              Moon, which justifies further investigations into space flight's
+              impact on vertebrate development. This review focuses on various
+              aspects of reproduction and early development of vertebrates in
+              space flights. The results of various experiments on fishes,
+              amphibians, reptiles, birds and mammals are described. The
+              experiments in which our team took part and ontogeny of the
+              vertebrate nervous and special sensory systems are considered in
+              more detail. Possible causes of morphological changes are also
+              discussed. Research on evolutionarily and taxonomically different
+              models can advance the understanding of reproduction in
+              microgravity. Reptiles, in particular, geckos, due to their
+              special features, can be a promising object of space
+              developmental biology.",
+  journal  = "Life",
+  volume   =  11,
+  number   =  2,
+  month    =  jan,
+  year     =  2021,
+  keywords = "amphibians; birds; development; fishes; mammals; microgravity;
+              nervous system; reproduction; reptiles; space flight; vertebrates",
+  language = "en",
+  url      = "https://www.mdpi.com/2075-1729/11/2/109/htm"
+}
+
+@inproceedings{mordvintsev2021rd,
+    author = {Mordvintsev, Alexander and Randazzo, Ettore and Niklasson, Eyvind},
+    title = {Differentiable Programming of Reaction-Diffusion Patterns},
+    volume = {ALIFE 2021: The 2021 Conference on Artificial Life},
+    series = {Artificial Life Conference Proceedings},
+    pages = {28},
+    year = {2021},
+    month = {07},
+    doi = {10.1162/isal_a_00429},
+    url = {https://doi.org/10.1162/isal\_a\_00429},
+    eprint = {https://direct.mit.edu/isal/proceedings-pdf/isal2021/33/28/1930034/isal\_a\_00429.pdf},
+}
+
+@article{niklasson2021self-organising,
+  author = {Niklasson, Eyvind and Mordvintsev, Alexander and Randazzo, Ettore and Levin, Michael},
+  title = {Self-Organising Textures},
+  journal = {Distill},
+  year = {2021},
+  note = {https://distill.pub/selforg/2021/textures},
+  doi = {10.23915/distill.00027.003}
+}
+
+
+@ARTICLE{Bronstein2021-za,
+  title         = "Geometric Deep Learning: Grids, Groups, Graphs, Geodesics,
+                   and Gauges",
+  author        = "Bronstein, Michael M and Bruna, Joan and Cohen, Taco and
+                   Veli{\v c}kovi{\'c}, Petar",
+  abstract      = "The last decade has witnessed an experimental revolution in
+                   data science and machine learning, epitomised by deep
+                   learning methods. Indeed, many high-dimensional learning
+                   tasks previously thought to be beyond reach -- such as
+                   computer vision, playing Go, or protein folding -- are in
+                   fact feasible with appropriate computational scale.
+                   Remarkably, the essence of deep learning is built from two
+                   simple algorithmic principles: first, the notion of
+                   representation or feature learning, whereby adapted, often
+                   hierarchical, features capture the appropriate notion of
+                   regularity for each task, and second, learning by local
+                   gradient-descent type methods, typically implemented as
+                   backpropagation. While learning generic functions in high
+                   dimensions is a cursed estimation problem, most tasks of
+                   interest are not generic, and come with essential
+                   pre-defined regularities arising from the underlying
+                   low-dimensionality and structure of the physical world. This
+                   text is concerned with exposing these regularities through
+                   unified geometric principles that can be applied throughout
+                   a wide spectrum of applications. Such a 'geometric
+                   unification' endeavour, in the spirit of Felix Klein's
+                   Erlangen Program, serves a dual purpose: on one hand, it
+                   provides a common mathematical framework to study the most
+                   successful neural network architectures, such as CNNs, RNNs,
+                   GNNs, and Transformers. On the other hand, it gives a
+                   constructive procedure to incorporate prior physical
+                   knowledge into neural architectures and provide principled
+                   way to build future architectures yet to be invented.",
+  month         =  apr,
+  year          =  2021,
+  archivePrefix = "arXiv",
+  primaryClass  = "cs.LG",
+  eprint        = "2104.13478",
+  url = "https://arxiv.org/abs/2104.13478",
+}

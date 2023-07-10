@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Isotropic Neural CA demo</title>
+
+<script src="swissgl.js"></script>
+
+<style>
+    body, html {
+        box-sizing: border-box;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Arial, sans-serif;
+        max-width: 800px;
+        margin: auto;
+        font-size: 20px;
+    }
+    a:link {text-decoration: none;}
+    #c {
+        width: 100%;
+        max-width: 800px; 
+        aspect-ratio: 1/0.866;
+        touch-action: none;
+        user-select: none;
+    }
+</style>
+
+<div style="margin: 10px;">
+<h1>Isotropic Neural CA demo</h1>
+<p>
+  <a href="https://znah.net/">Alexander Mordvinstev</a> |
+  <a href="https://oteret.github.io/">Ettore Randazzo</a> |
+  <a href="https://www.craigfouts.com/">Craig Fouts</a> |
+  <a href="https://eyvind.me/">Eyvind Niklasson</a>
+</p>
+<p>
+    <a href="https://google-research.github.io/self-organising-systems/isonca/">📝 Read article</a>
+</p>
+</div>
+
+<canvas id="c"></canvas>
+<div style="margin-bottom: 16px;">
+<button onclick="reset()">Reset</button>
+    Speed:
+  <input type="range" min="-6" max="4" value="0" class="slider" id="speed">
+  <span id="speedText">tt</span>x
+  <div style="float: right; font-size: 16px; color:grey">powered by <a href="https://google.github.io/swissgl/">Swiss.GL</a></div>
+</div>
+
+<div style="margin: 10px;">
+<b>Instructions:</b>
+<ul>
+    <li>Click/tap: plant a seed cells</li>
+    <li>Press and hold: suppress cells locally</li>
+</ul>
+</div>
+
+
+<script>
+    const $ = s=>document.querySelector(s);
+    const canvas = $("#c");
+    const glsl = SwissGL(canvas);
+
+    let weights = null;
+    let grid = null;
+
+    function reset() {
+        for (let i=0; i<2; ++i)
+        grid = glsl({FP:`
+            FOut = FOut1 = FOut2 = FOut3 = vec4(0);
+            if (I==ViewSize/2) {
+                FOut = vec4(0,0,0,1);
+                FOut1 = FOut2 = FOut3 = vec4(1);
+            }`}, {size:[128, 128], layern:4, format:'rgba16f', story:2, tag:'grid'});
+        
+    }
+
+    async function init() {
+        const response = await fetch('cadata.json');
+        const data = await response.json();
+        const decode = d=>new Float32Array(Uint8Array.from(atob(d.data64), c=>c.charCodeAt(0)).buffer);
+        const [ch,ci]=data.w1.shape, co=data.w2.shape[1];
+        weights = {
+            w1: glsl({}, {size:[ci/4,ch], format:'rgba32f', data:decode(data.w1), tag:'w1'}),
+            b1: glsl({}, {size:[1,ch], format:'r32f', data:decode(data.b1), tag:'b1'}),
+            w2: glsl({}, {size:[co/4,ch], format:'rgba32f', data:decode(data.w2), tag:'w2'}),
+        }
+        reset();
+        requestAnimationFrame(frame);
+    }
+    init();
+
+    function step() {
+        if (!weights) return;
+        glsl({...weights, seed:Math.random()*26321, FP:`
+            const int C4 = 16/4;
+            vec4 sp[C4*2], upd[C4];
+            float maxAlpha = 0.0;
+
+            void neib(int x, int y, float w) {
+                ivec2 p = (ivec2(I.x+x, I.y+y)+ViewSize)%ViewSize;
+                vec4 v = Src(p,0);
+                maxAlpha = max(maxAlpha, v.a);
+                sp[C4] += w*v;
+                sp[C4+1] += w*Src(p,1);
+                sp[C4+2] += w*Src(p,2);
+                sp[C4+3] += w*Src(p,3);
+            }
+
+            void fragment() {
+                for (int i=0; i<C4; ++i) {
+                    sp[i] = Src(I,i);
+                    sp[i+C4] = -12.0*sp[i];
+                    upd[i] = vec4(0.0);
+                }
+                FOut = sp[0]; FOut1 = sp[1]; FOut2 = sp[2]; FOut3 = sp[3];
+                if (hash(ivec3(I,seed)).x>0.5) return;
+                maxAlpha = sp[0].a;
+                neib(-1,-1, 2.); neib(0,-1, 2.); 
+                neib(-1, 0, 2.); neib(1, 0, 2.);
+                neib( 0, 1, 2.); neib(1, 1, 2.);
+                if (maxAlpha<0.1) {
+                    FOut=FOut1=FOut2=FOut3=vec4(0);
+                    return;
+                }
+                int ci = w1_size().x, ch = w1_size().y;
+                for (int h=0; h<ch; ++h) {
+                    float y = b1(ivec2(0, h)).x;
+                    for (int i=0; i<ci; ++i) {y += dot(sp[i], w1(ivec2(i, h)));}
+                    if (y<=0.0) continue;
+                    for (int i=0; i<C4; ++i) {upd[i] += y*w2(ivec2(i, h));}
+                }
+                for (int i=0; i<C4; ++i) {sp[i] = clamp(sp[i]+upd[i], -2.0, 2.0);}
+                FOut = sp[0]; FOut1 = sp[1]; FOut2  = sp[2]; FOut3 = sp[3];
+            }
+            `}, grid);
+    }
+
+    const inc = `
+    uniform vec2 aspect;
+    vec2 cell2wld(ivec2 id, ivec2 gridSize) {
+        vec2 ext = vec2(gridSize-1);
+        vec2 p = vec2(id)-ext*0.5;
+        p *= mat2(1,-0.5,0.0,sqrt(3.)/2.);
+        p.x = (fract(p.x/ext.x+0.5)-0.5)*ext.x;
+        return p;
+    }
+    vec2 wld2scr(vec2 p) {
+        return p*aspect/64.0;
+    }
+    vec2 scr2wld(vec2 p) {
+        return p*64.0/aspect;
+    }`;
+    function getAspect() {
+        const [w, h] = [canvas.clientWidth, canvas.clientHeight];
+        return [1.0, w/Math.max(h, 1)];
+    }
+
+    const laserDelay = 100;
+    let mousePos = null;
+    let pressTime = 0;
+
+    function plantSeed() {
+        glsl({aspect:getAspect(), mousePos, Inc:inc, FP:`
+            FOut=Src(I,0); FOut1=Src(I,1); FOut2=Src(I,2); FOut3=Src(I,3);
+            vec2 r = abs(cell2wld(I, ViewSize)-scr2wld(mousePos));
+            if (max(r.x, dot(r, vec2(0.5, 0.866))) < 0.5) {
+                FOut = vec4(0,0,0,1); FOut1 = FOut2 = FOut3 = vec4(1);                
+            }
+        `}, grid);
+    }
+
+    const setPointer = (e, buttons)=>{
+        const [w, h] = [canvas.clientWidth, canvas.clientHeight];
+        mousePos = buttons ? [2*e.offsetX/w-1, 1.0-2*e.offsetY/h] : null;
+    };
+    canvas.addEventListener('pointerdown', e=>{
+        if (!e.isPrimary) return;
+        setPointer(e, e.buttons);
+        pressTime = Date.now();
+    });
+    canvas.addEventListener('pointerout', e=>setPointer(e, 0));
+    canvas.addEventListener('pointerup', e=>{
+        if (mousePos && Date.now()-pressTime < laserDelay) {
+            plantSeed();
+        }
+        setPointer(e, 0);
+    });
+    canvas.addEventListener('pointermove', e=>{
+        if (!e.isPrimary || e.buttons != 1) return;
+        setPointer(e, e.buttons);
+    });
+
+    function adjustCanvas() {
+        const dpr = devicePixelRatio;
+        const w = canvas.clientWidth*dpr, h=canvas.clientHeight*dpr;
+        if (canvas.width != w || canvas.height != h) {
+            canvas.width = w; canvas.height = h;
+        }        
+    }
+    
+    let skip = 0;
+
+    function frame(time) {
+        requestAnimationFrame(frame);
+        adjustCanvas();
+
+        const speedExp = $('#speed').value;
+        const stepOrSkipN =  Math.pow(2.0, Math.abs(speedExp));
+        $('#speedText').innerText = speedExp >= 0 ? stepOrSkipN : `1/${stepOrSkipN}`;
+        if (speedExp >= 0) {
+            for (let i=0; i<stepOrSkipN; ++i) step();
+        } else {
+            if (skip-- == 0) {
+                step(); skip = stepOrSkipN;
+            }
+        }
+
+        glsl({Clear:[0.9,0.9,0.9,1]});
+
+        const common = {aspect:getAspect()};
+        if (mousePos && Date.now()-pressTime > laserDelay) {
+            glsl({...common, mousePos, Inc:inc, Blend:'d*s', FP:`
+                vec2 wld = cell2wld(I, ViewSize);
+                float c = smoothstep(0.1, 0.15, length(wld2scr(wld)-mousePos));
+                FOut=FOut1=FOut2=FOut3 = vec4(c);
+            `}, grid[0]);
+            glsl({...common, mousePos, Inc:inc, Blend:'d*(1-sa)+s',
+                VP:`mousePos+XY*aspect*0.1,0,1`,
+                FP:`smoothstep(1.0, 0.1, length(XY))*vec4(1,0,0,0.7)`});
+        }
+
+        glsl({grid0:grid[0], grid1:grid[1], ...common,
+            t:speedExp >= 0 ? 0.0 : Math.min(skip/(stepOrSkipN+1e-10), 1.0),
+            Grid:grid[0].size, Mesh:[20,1], DepthTest:1, Inc:inc+`varying vec4 state;`, VP:`
+            state = mix(grid0(ID.xy, 0), grid1(ID.xy, 0), t);
+            vec2 wld = cell2wld(ID.xy, Grid.xy);
+            float r = clamp(state.a/0.1, 0.0, 1.0);
+            VPos.xy = wld2scr(wld + vec2(UV.y*r,0.0)*rot2(UV.x*TAU));
+            VPos.z = UV.y;`, FP:`
+            FOut = vec4(0.9*(1.0-state.a)+state.rgb, 1);
+            FOut.rgb *= 1.0-UV.y*UV.y*0.2;`});
+
+    }
+</script>
