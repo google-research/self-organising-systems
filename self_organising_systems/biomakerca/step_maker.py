@@ -41,13 +41,10 @@ from self_organising_systems.biomakerca.env_logic import KeyType
 from self_organising_systems.biomakerca.env_logic import PerceivedData
 from self_organising_systems.biomakerca.env_logic import process_energy
 from self_organising_systems.biomakerca.env_logic import process_structural_integrity_n_times
-from self_organising_systems.biomakerca.environments import ENV_TYPES
 from self_organising_systems.biomakerca.environments import EnvConfig
 from self_organising_systems.biomakerca.environments import Environment
 from self_organising_systems.biomakerca.mutators import Mutator
 
-
-DEFAULT_EXCL_FS = ((ENV_TYPES.AIR, air_cell_op), (ENV_TYPES.EARTH, earth_cell_op))
 
 
 @partial(jit, static_argnames=[
@@ -59,7 +56,7 @@ def step_env(
     programs: AgentProgramType,
     excl_fs: Iterable[
         tuple[EnvTypeType, Callable[[KeyType, PerceivedData], ExclusiveOp]]]
-    = DEFAULT_EXCL_FS,
+    = None,
     do_reproduction=True,
     mutate_programs=False,
     mutator: (Mutator | None) = None,
@@ -104,6 +101,10 @@ def step_env(
     an updated environment. If intercept_reproduction is True, returns also the
     number of successful reproductions intercepted.
   """
+  etd = config.etd
+  if excl_fs is None:
+    excl_fs = ((etd.types.AIR, air_cell_op), (etd.types.EARTH, earth_cell_op))
+  
   if mutate_programs:
     agent_params, _ = vmap(mutator.split_params)(programs)
   else:
@@ -114,7 +115,7 @@ def step_env(
   # do a few steps of structural integrity:
   env = process_structural_integrity_n_times(env, config, 5)
 
-  env = env_process_gravity(env)
+  env = env_process_gravity(env, etd)
 
   # doing reproduction here to actually show the flowers at least for one step.
   if do_reproduction:
@@ -150,7 +151,7 @@ def step_env(
       k1, env, excl_programs, config, excl_fs, agent_logic.excl_f)
 
   # increase age.
-  env = env_increase_age(env)
+  env = env_increase_age(env, etd)
 
   rval = (env, programs) if mutate_programs else env
   rval = (rval, n_successful_repr) if intercept_reproduction else rval

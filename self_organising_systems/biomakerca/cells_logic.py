@@ -27,7 +27,6 @@ import jax
 import jax.numpy as jp
 import jax.random as jr
 
-from self_organising_systems.biomakerca import environments as evm
 from self_organising_systems.biomakerca.env_logic import ExclusiveOp
 from self_organising_systems.biomakerca.env_logic import EMPTY_UPD_ID
 from self_organising_systems.biomakerca.env_logic import EMPTY_UPD_MASK
@@ -37,7 +36,6 @@ from self_organising_systems.biomakerca.env_logic import make_empty_exclusive_op
 from self_organising_systems.biomakerca.env_logic import make_empty_upd_state
 from self_organising_systems.biomakerca.env_logic import PerceivedData
 from self_organising_systems.biomakerca.env_logic import UpdateOp
-from self_organising_systems.biomakerca.environments import ENV_TYPES
 from self_organising_systems.biomakerca.environments import EnvConfig
 
 
@@ -50,6 +48,7 @@ def air_cell_op(key: KeyType, perc: PerceivedData, config: EnvConfig
   
   AIR simply spreads through neighboring VOID cells.
   """
+  etd = config.etd
   # choose a random neighbor.
   k1, key = jr.split(key)
   neigh_idx = jr.choice(k1, jp.array([0, 1, 2, 3, 5, 6, 7, 8]))
@@ -57,7 +56,7 @@ def air_cell_op(key: KeyType, perc: PerceivedData, config: EnvConfig
   def action_fn(neigh_idx):
     t_upd_mask = EMPTY_UPD_MASK.at[neigh_idx].set(1.0)
     a_upd_mask = EMPTY_UPD_MASK
-    t_upd_type = EMPTY_UPD_TYPE.at[neigh_idx].set(ENV_TYPES.AIR)
+    t_upd_type = EMPTY_UPD_TYPE.at[neigh_idx].set(etd.types.AIR)
     a_upd_type = EMPTY_UPD_TYPE
     t_upd_state = make_empty_upd_state(config)
     a_upd_state = make_empty_upd_state(config)
@@ -71,7 +70,7 @@ def air_cell_op(key: KeyType, perc: PerceivedData, config: EnvConfig
 
   # needs to be in bounds and only spreads through void.
   result = jax.lax.cond(
-      perc.neigh_type[neigh_idx] == ENV_TYPES.VOID,
+      perc.neigh_type[neigh_idx] == etd.types.VOID,
       action_fn,  # true
       lambda _: make_empty_exclusive_op_cell(config),  # false
       neigh_idx,
@@ -93,12 +92,13 @@ def earth_cell_op(key: KeyType, perc: PerceivedData, config: EnvConfig
   gravity will push it down.
   """
   neigh_type, neigh_state, neigh_id = perc
+  etd = config.etd
 
   # first check if you can fall.
   # for now, you can't fall out of bounds.
   can_fall = jp.logical_and(
-      neigh_type[7] != ENV_TYPES.OUT_OF_BOUNDS,
-      (neigh_type[7] == evm.INTANGIBLE_MATS).any(),
+      neigh_type[7] != etd.types.OUT_OF_BOUNDS,
+      (neigh_type[7] == etd.intangible_mats).any(),
   )
 
   # if you can fall, do nothing. Gravity will take care of it.
@@ -108,7 +108,7 @@ def earth_cell_op(key: KeyType, perc: PerceivedData, config: EnvConfig
     a_upd_mask = EMPTY_UPD_MASK.at[side_idx].set(1.0)
 
     # switch the types, states and ids
-    t_upd_type = EMPTY_UPD_TYPE.at[side_idx].set(ENV_TYPES.EARTH)
+    t_upd_type = EMPTY_UPD_TYPE.at[side_idx].set(etd.types.EARTH)
     a_upd_type = EMPTY_UPD_TYPE.at[side_idx].set(neigh_type[side_idx])
     t_upd_state = make_empty_upd_state(config).at[side_idx].set(neigh_state[4])
     a_upd_state = (
@@ -129,10 +129,10 @@ def earth_cell_op(key: KeyType, perc: PerceivedData, config: EnvConfig
     down_rnd_idx = rnd_idx + 3
 
     can_fall = (
-        (neigh_type[rnd_idx] != ENV_TYPES.OUT_OF_BOUNDS)
-        & (neigh_type[down_rnd_idx] != ENV_TYPES.OUT_OF_BOUNDS)
-        & ((neigh_type[rnd_idx] == evm.INTANGIBLE_MATS).any())
-        & ((neigh_type[down_rnd_idx] == evm.INTANGIBLE_MATS).any())
+        (neigh_type[rnd_idx] != etd.types.OUT_OF_BOUNDS)
+        & (neigh_type[down_rnd_idx] != etd.types.OUT_OF_BOUNDS)
+        & ((neigh_type[rnd_idx] == etd.intangible_mats).any())
+        & ((neigh_type[down_rnd_idx] == etd.intangible_mats).any())
     )
 
     return jax.lax.cond(

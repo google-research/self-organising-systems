@@ -38,10 +38,9 @@ import jax.random as jr
 import jax.scipy
 
 from self_organising_systems.biomakerca import environments as evm
-from self_organising_systems.biomakerca.environments import ENV_TYPES
 from self_organising_systems.biomakerca.environments import EnvConfig
+from self_organising_systems.biomakerca.environments import EnvTypeDef
 from self_organising_systems.biomakerca.environments import Environment
-from self_organising_systems.biomakerca.environments import is_agent_fn
 from self_organising_systems.biomakerca.utils import split_2d
 from self_organising_systems.biomakerca.utils import vmap2
 
@@ -124,7 +123,7 @@ def make_empty_exclusive_interface_cell(config):
 # ParallelInterface for further information.
 if "ParallelOp" not in globals():
   ParallelOp = namedtuple("ParallelOp",
-                             "mask denergy_neigh dstate new_type")
+                          "mask denergy_neigh dstate new_type")
 
 # Helpers for making ParallelOps
 EMPTY_DENERGY_NEIGH = jp.zeros([9, 2])
@@ -146,9 +145,9 @@ def make_empty_parallel_op_cell(config):
 #    position 4, which is ignored.
 #  dstate: how to change self internal state.
 #  new_spec_logit: logit of what should be the next specialization.
-if 'ParallelInterface' not in globals():
-  ParallelInterface = namedtuple('ParallelInterface',
-                                    'denergy_neigh dstate new_spec_logit')
+if "ParallelInterface" not in globals():
+  ParallelInterface = namedtuple("ParallelInterface",
+                                 "denergy_neigh dstate new_spec_logit")
 
 
 # ReproduceOp.
@@ -170,8 +169,8 @@ EMPTY_REPRODUCE_OP = ReproduceOp(
 # new seed. However, reproduction has a cost and it may fail.
 # Arguments:
 #   mask_logit: whether or not to perform reproduction. True if > 0.
-if 'ReproduceInterface' not in globals():
-  ReproduceInterface = namedtuple('ReproduceInterface', 'mask_logit')
+if "ReproduceInterface" not in globals():
+  ReproduceInterface = namedtuple("ReproduceInterface", "mask_logit")
 
 
 ### Code for actions taken by the environment.
@@ -191,7 +190,7 @@ if "PerceivedData" not in globals():
                              "neigh_type, neigh_state, neigh_id")
 
 
-def perceive_neighbors(env: Environment) -> PerceivedData:
+def perceive_neighbors(env: Environment, etd: EnvTypeDef) -> PerceivedData:
   """Return PerceivedData (gridwise, with leading axes of size [w,h]).
   
   Cells can only perceive their neighbors. Of the neighbors, they can perceive 
@@ -203,7 +202,7 @@ def perceive_neighbors(env: Environment) -> PerceivedData:
   # The convolution patches input has to be 4d and float.
   # Use out_of_bounds padding.
   pad_type_grid = jp.pad(env.type_grid, 1,
-                         constant_values=ENV_TYPES.OUT_OF_BOUNDS)
+                         constant_values=etd.types.OUT_OF_BOUNDS)
   neigh_type = jax.lax.conv_general_dilated_patches(
       pad_type_grid[None, :, :, None].astype(jp.float32),
       (3, 3), (1, 1), "VALID", dimension_numbers=("NHWC", "OIHW", "NHWC")
@@ -248,7 +247,7 @@ def vectorize_agent_cell_f(
 
 
 def make_material_exclusive_interface(
-    cell_type, cell_f: Callable[[KeyType, PerceivedData], ExclusiveOp],
+    cell_type, cell_f: Callable[[KeyType, PerceivedData, EnvConfig], ExclusiveOp],
     config: EnvConfig) -> Callable[[KeyType, PerceivedData], ExclusiveOp]:
   """Constructs an interface for material exclusive functions.
   This interface makes sure that a given cell type only executes its own 
@@ -286,6 +285,8 @@ def _convert_to_exclusive_op(
   self_agent_state = self_state[evm.A_INT_STATE_ST:]
   self_en = self_state[evm.EN_ST : evm.EN_ST + 2]
   self_id = neigh_id[4]
+  
+  etd = env_config.etd
 
   switch, spawn_op_data = excl_interface
   sp_idx, en_perc, child_state, d_state_self = spawn_op_data
@@ -295,7 +296,7 @@ def _convert_to_exclusive_op(
   # must have enough energy for spawn.
   has_enough_energy = (self_en >= env_config.spawn_cost).all()
   # agents can only be spawned in some materials.
-  is_valid_target = (neigh_type[sp_idx] == evm.AGENT_SPAWNABLE_MATS).any()
+  is_valid_target = (neigh_type[sp_idx] == etd.agent_spawnable_mats).any()
 
   sp_m = sp_m * (has_enough_energy & is_valid_target).astype(jp.float32)
   
@@ -307,7 +308,7 @@ def _convert_to_exclusive_op(
 
   t_upd_mask = EMPTY_UPD_MASK.at[sp_idx].set(sp_m)
   t_upd_type = EMPTY_UPD_TYPE.at[sp_idx].set(
-      sp_m.astype(jp.uint32) * ENV_TYPES.AGENT_UNSPECIALIZED
+      sp_m.astype(jp.uint32) * etd.types.AGENT_UNSPECIALIZED
   )
   t_upd_state = (
       make_empty_upd_state(env_config)
@@ -366,7 +367,7 @@ def make_agent_exclusive_interface(
   """
   def f(key: KeyType, perc: PerceivedData, programs: AgentProgramType
         ) -> ExclusiveOp:
-    is_correct_type = is_agent_fn(perc.neigh_type[4])
+    is_correct_type = config.etd.is_agent_fn(perc.neigh_type[4])
 
     curr_agent_id = perc.neigh_id[4]
     program = programs[curr_agent_id]
@@ -407,7 +408,8 @@ def execute_and_aggregate_exclusive_ops(
   Aggregation can be done because *only one function*, at most, will be allowed
   to output nonzero values for each cell.
   """
-  perc = perceive_neighbors(env)
+  etd = config.etd
+  perc = perceive_neighbors(env, etd)
   w, h = env.type_grid.shape
   v_excl_fs = [vectorize_cell_exclusive_f(
       make_material_exclusive_interface(t, f, config), w, h) for (t, f)
@@ -610,12 +612,13 @@ def _convert_to_parallel_op(
   neigh_type, neigh_state, _ = perc
   self_state = neigh_state[4]
   self_en = self_state[evm.EN_ST : evm.EN_ST + 2]
+  etd = env_config.etd
 
   denergy_neigh, dstate, new_spec_logit = par_interface
 
   # Make sure that the energy passed is valid.
   # energy is only passed to agents.
-  is_neigh_agent_fe = is_agent_fn(neigh_type).astype(jp.float32)[:, None]
+  is_neigh_agent_fe = etd.is_agent_fn(neigh_type).astype(jp.float32)[:, None]
   denergy_neigh = denergy_neigh * is_neigh_agent_fe
   # Energy passed is only >= 0.
   # the energy passed to self is ignored.
@@ -629,7 +632,7 @@ def _convert_to_parallel_op(
 
   denergy_neigh = (denergy_neigh / divider).at[4].set(-denergy_self)
 
-  new_type = evm.get_agent_type_from_spec_idx(jp.argmax(new_spec_logit))
+  new_type = etd.get_agent_type_from_spec_idx(jp.argmax(new_spec_logit))
 
   # Specializing has a cost. If you can't afford it, do not change type.
   self_type = neigh_type[4]
@@ -660,7 +663,7 @@ def make_agent_parallel_interface(
   ParallelOp, by making sure that no laws of physics are broken.
   """
   def f(key, perc, programs):
-    is_correct_type = is_agent_fn(perc.neigh_type[4])
+    is_correct_type = config.etd.is_agent_fn(perc.neigh_type[4])
 
     curr_agent_id = perc.neigh_id[4]
     program = programs[curr_agent_id]
@@ -704,7 +707,8 @@ def env_perform_parallel_update(
   v_par_f = vectorize_agent_cell_f(make_agent_parallel_interface(
       par_f, config), w, h)
 
-  perc = perceive_neighbors(env)
+  etd = config.etd
+  perc = perceive_neighbors(env, etd)
 
   k1, key = jr.split(key)
   par_op = v_par_f(k1, perc, programs)
@@ -732,7 +736,7 @@ def env_perform_parallel_update(
   denergy = map_to_neigh(denergy_neigh).sum(2)
   new_en = env.state_grid[:, :, evm.EN_ST : evm.EN_ST+2] + denergy
   # energy state cap is different based on whether the cell is an agent or not.
-  is_agent_e = is_agent_fn(env.type_grid).astype(jp.float32)[..., None]
+  is_agent_e = etd.is_agent_fn(env.type_grid).astype(jp.float32)[..., None]
   new_en = (new_en.clip(0., config.material_nutrient_cap) * (1. - is_agent_e) +
             new_en.clip(0., config.nutrient_cap) * is_agent_e)
 
@@ -778,7 +782,8 @@ def _convert_to_reproduce_op(
   want_to_repr_m = (mask_logit > 0.0).astype(jp.float32)
 
   # must be a flower
-  is_flower_m = (self_type == ENV_TYPES.AGENT_FLOWER).astype(jp.float32)
+  is_flower_m = (self_type == env_config.etd.types.AGENT_FLOWER).astype(
+      jp.float32)
 
   # must have enough energy.
   has_enough_en_m = (
@@ -812,7 +817,7 @@ def make_agent_reproduce_interface(
   # this is used in the conversion to ReproduceOp, not by the cell.
   def f(key, perc, pos, programs):
     # it has to be a flower!
-    is_correct_type = ENV_TYPES.AGENT_FLOWER == perc.neigh_type[4]
+    is_correct_type = config.etd.types.AGENT_FLOWER == perc.neigh_type[4]
 
     curr_agent_id = perc.neigh_id[4]
     program = programs[curr_agent_id]
@@ -830,7 +835,7 @@ def make_agent_reproduce_interface(
   return f
 
 
-def find_fertile_soil(type_grid):
+def find_fertile_soil(type_grid, etd):
   """Return, for each column, what is the first fertile row index and whether one exists.
   
   We treat a cell as 'fertile' if they are earth and above them there is air.
@@ -844,7 +849,7 @@ def find_fertile_soil(type_grid):
   # create a mask that checks whether 'you are earth and above is air'.
   # the highest has index 0 (it is inverted).
   # the index starts from 1 (not 0) since the first row can never be fine.
-  mask = (type_grid[1:] == ENV_TYPES.EARTH) & (type_grid[:-1] == ENV_TYPES.AIR)
+  mask = (type_grid[1:] == etd.types.EARTH) & (type_grid[:-1] == etd.types.AIR)
   # only get the highest value, if it exists.
   # note that these indexes now would return the position of the 'high-end' of 
   # the seed. That is, the idx is where the top cell (leaf) would be, and idx+1 
@@ -880,9 +885,10 @@ def env_perform_one_reproduce_op(
   parent, if mutation was set to true.
   """
   mask, pos, stored_en, aid = repr_op
+  etd = config.etd
 
   def true_fn(env):
-    best_idx_per_column, column_m = find_fertile_soil(env.type_grid)
+    best_idx_per_column, column_m = find_fertile_soil(env.type_grid, etd)
     t_column, column_valid = _select_random_position_for_seed_within_range(
         key, pos[1], config.reproduce_min_dist, config.reproduce_max_dist, 
         column_m)
@@ -891,7 +897,7 @@ def env_perform_one_reproduce_op(
       t_row = best_idx_per_column[t_column]
       type_grid = jax.lax.dynamic_update_slice(
           env.type_grid,
-          jp.full((2, 1), ENV_TYPES.AGENT_UNSPECIALIZED, dtype=jp.uint32),
+          jp.full((2, 1), etd.types.AGENT_UNSPECIALIZED, dtype=jp.uint32),
           (t_row, t_column))
       new_states = jp.zeros([2, 1, config.env_state_size])
       # this by default resets age.
@@ -937,8 +943,8 @@ def _select_subset_of_reproduce_ops(key, b_repr_op, neigh_type, config):
   # the more likely they are to be selected.
   # NOTE: a part of this logic can be moved into _convert_to_reproduce_op, but 
   # since it would be redundant, I am putting it only here.
-  n_air_neigh = (neigh_type == ENV_TYPES.AIR).astype(jp.float32
-                                                    ).sum(-1).flatten()
+  n_air_neigh = (neigh_type == config.etd.types.AIR).astype(jp.float32
+                                                            ).sum(-1).flatten()
   p_logits *= n_air_neigh
 
   k1, key = jr.split(key)
@@ -983,7 +989,8 @@ def env_perform_reproduce_update(
     an updated environment. if mutate_programs is True, it also returns 
     the updated programs.
   """
-  perc = perceive_neighbors(env)
+  etd = config.etd
+  perc = perceive_neighbors(env, etd)
   k1, key = jr.split(key)
   w, h = env.type_grid.shape
 
@@ -1012,7 +1019,7 @@ def env_perform_reproduce_update(
     # If there is no space, set the mask to zero instead.
 
     # get n agents per id.
-    is_agent_flat = is_agent_fn(env.type_grid).flatten().astype(jp.float32)
+    is_agent_flat = etd.is_agent_fn(env.type_grid).flatten().astype(jp.float32)
     env_aid_flat = env.agent_id_grid.flatten()
 
     n_agents_in_env = jax.ops.segment_sum(
@@ -1097,7 +1104,8 @@ def intercept_reproduce_ops(
     an updated environment, and a counter determining the number of successful
     reproductions.
   """
-  perc = perceive_neighbors(env)
+  etd = config.etd
+  perc = perceive_neighbors(env, etd)
   k1, key = jr.split(key)
   w, h = env.type_grid.shape
   v_repr_f = vectorize_reproduce_f(
@@ -1139,20 +1147,20 @@ def intercept_reproduce_ops(
 ### Gravity logic.
 
 
-def _line_gravity(env, x, h):
+def _line_gravity(env, x, h, etd):
   type_grid, state_grid, agent_id_grid = env
   env_state_size = state_grid.shape[-1]
   # self needs to be affected by gravity:
-  is_gravity_mat = vmap(lambda ctype: (ctype == evm.GRAVITY_MATS).any())(
+  is_gravity_mat = vmap(lambda ctype: (ctype == etd.gravity_mats).any())(
       type_grid[x])
   # down needs to be intangible:
   is_down_intangible_mat = vmap(
-      lambda ctype: (ctype == evm.INTANGIBLE_MATS).any())(type_grid[x+1])
+      lambda ctype: (ctype == etd.intangible_mats).any())(type_grid[x+1])
   # structural integrity needs to be 0.
   # or it must be not structural
   is_crumbling = jp.logical_or(
       state_grid[x, :, 0] <= 0.,
-      vmap(lambda ctype: (ctype != evm.STRUCTURAL_MATS).all())(type_grid[x]))
+      vmap(lambda ctype: (ctype != etd.structural_mats).all())(type_grid[x]))
   swap_mask = (is_gravity_mat & is_down_intangible_mat & is_crumbling
                ).astype(jp.float32)
   # [h] -> [1,h]
@@ -1181,7 +1189,7 @@ def _line_gravity(env, x, h):
   return Environment(new_type_grid, new_state_grid, new_agent_id_grid), 0
 
 
-def env_process_gravity(env: Environment) -> Environment:
+def env_process_gravity(env: Environment, etd: EnvTypeDef) -> Environment:
   """Process gravity in the input env.
   
   Only materials subject to gravity (env.GRAVITY_MATS) can fall.
@@ -1193,7 +1201,7 @@ def env_process_gravity(env: Environment) -> Environment:
   """
   w, h = env.type_grid.shape
   env, _ = jax.lax.scan(
-      partial(_line_gravity, h=h),
+      partial(_line_gravity, h=h, etd=etd),
       env,
       jp.arange(w-2, -1, -1))
   return env
@@ -1217,8 +1225,9 @@ def process_structural_integrity(env: Environment, config: EnvConfig):
   'process_structural_integrity_n_times' instead.
   """
   type_grid, state_grid, agent_id_grid = env
-  is_immovable = type_grid == ENV_TYPES.IMMOVABLE
-  propagates_structure = (type_grid[..., None] == evm.PROPAGATE_STRUCTURE_MATS
+  etd = config.etd
+  is_immovable = type_grid == etd.types.IMMOVABLE
+  propagates_structure = (type_grid[..., None] == etd.propagate_structure_mats
                           ).any(-1)
 
   # if cell is immovable, set the structural integrity to the cap.
@@ -1230,7 +1239,7 @@ def process_structural_integrity(env: Environment, config: EnvConfig):
   
   # Every material has a certain structural decay. Subtract that.
   propagated_int = (max_neigh_struct_int -
-                    config.structure_decay_mats[type_grid]).clip(0)
+                    etd.structure_decay_mats[type_grid]).clip(0)
 
   # this way it defaults to 0 for non structural materials.
   struct_upd = (is_immovable.astype(jp.float32) * config.struct_integrity_cap +
@@ -1289,13 +1298,13 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
   # IMMOVABLE (for now) is treated as earth as it had maximum earth nutrient.
   # then, we perform diffusion of the nutrients (air to air, earth to earth).
   # Finally, energy is absorbed by the roots/leaves (with a cap).
-
+  etd = config.etd
 
   ### Nutrient diffusion.
 
   # earth nutrients:
-  is_earth_grid_f = (env.type_grid == ENV_TYPES.EARTH).astype(jp.float32)
-  is_immovable_grid_f = (env.type_grid == ENV_TYPES.IMMOVABLE).astype(
+  is_earth_grid_f = (env.type_grid == etd.types.EARTH).astype(jp.float32)
+  is_immovable_grid_f = (env.type_grid == etd.types.IMMOVABLE).astype(
       jp.float32)
   earth_nutrient = (
       env.state_grid[:,:, evm.EN_ST+evm.EARTH_NUTRIENT_RPOS] * is_earth_grid_f +
@@ -1316,8 +1325,8 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
   new_earth_nutrient = (earth_nutrient + d_earth_n) * is_earth_grid_f
 
   # air nutrients:
-  is_air_grid_f = (env.type_grid == ENV_TYPES.AIR).astype(jp.float32)
-  is_sun_grid_f = (env.type_grid == ENV_TYPES.SUN).astype(jp.float32)
+  is_air_grid_f = (env.type_grid == etd.types.AIR).astype(jp.float32)
+  is_sun_grid_f = (env.type_grid == etd.types.SUN).astype(jp.float32)
   air_nutrient = (
       env.state_grid[:,:, evm.EN_ST+evm.AIR_NUTRIENT_RPOS] * is_air_grid_f +
       config.material_nutrient_cap[evm.AIR_NUTRIENT_RPOS] * is_sun_grid_f)
@@ -1339,8 +1348,8 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
 
   ### Nutrient extraction.
   
-  is_root_grid = (env.type_grid == ENV_TYPES.AGENT_ROOT)
-  is_leaf_grid = (env.type_grid == ENV_TYPES.AGENT_LEAF)
+  is_root_grid = (env.type_grid == etd.types.AGENT_ROOT)
+  is_leaf_grid = (env.type_grid == etd.types.AGENT_LEAF)
 
   # this says how much each agent is asking to each neighbor.
   asking_nutrients = jp.stack(
@@ -1375,11 +1384,11 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
   ### Energy dissipation at every step.
   
   # dissipate energy by living.
-  is_agent_grid = is_agent_fn(env.type_grid)
+  is_agent_grid = etd.is_agent_fn(env.type_grid)
   is_agent_grid_e_f = is_agent_grid.astype(jp.float32)[..., None]
-  ag_spec_idx = evm.get_agent_specialization_idx(env.type_grid)
+  ag_spec_idx = etd.get_agent_specialization_idx(env.type_grid)
   # [w,h,3] @ [3,2] -> [w,h,2]
-  agent_dissipation_rate = config.dissipation_rate_per_spec[ag_spec_idx]
+  agent_dissipation_rate = etd.dissipation_rate_per_spec[ag_spec_idx]
   dissipated_energy = (config.dissipation_per_step * agent_dissipation_rate *
                        is_agent_grid_e_f)
 
@@ -1408,8 +1417,8 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
 
   is_agent_energy_depleted_uint32 = is_agent_energy_depleted.astype(jp.uint32)
   replacement_type_grid = (
-      (1 - is_agent_energy_depleted_uint32[:,:, 0]) * ENV_TYPES.EARTH +
-      (1 - is_agent_energy_depleted_uint32[:,:, 1]) * ENV_TYPES.AIR)
+      (1 - is_agent_energy_depleted_uint32[:,:, 0]) * etd.types.EARTH +
+      (1 - is_agent_energy_depleted_uint32[:,:, 1]) * etd.types.AIR)
   new_type_grid = env.type_grid * (1 - kill_agent_int) + kill_agent_int * (
       replacement_type_grid)
   # potentially reset states but the energy is preserved, since if an agent dies
@@ -1426,9 +1435,9 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
 ### Processing age of agents.
 
 
-def env_increase_age(env: Environment) -> Environment:
+def env_increase_age(env: Environment, etd: EnvTypeDef) -> Environment:
   """Increase the age of all agents by 1."""
-  is_agent_m = is_agent_fn(env.type_grid).astype(jp.float32)
+  is_agent_m = etd.is_agent_fn(env.type_grid).astype(jp.float32)
   new_state_grid = env.state_grid.at[:,:, evm.AGE_IDX].set(
       env.state_grid[:,:, evm.AGE_IDX] + is_agent_m)
   return evm.update_env_state_grid(env, new_state_grid)

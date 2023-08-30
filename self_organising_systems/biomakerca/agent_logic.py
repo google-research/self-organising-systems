@@ -31,10 +31,7 @@ from self_organising_systems.biomakerca.env_logic import PerceivedData
 from self_organising_systems.biomakerca.env_logic import ReproduceInterface
 from self_organising_systems.biomakerca.env_logic import SpawnOpData
 from self_organising_systems.biomakerca.env_logic import ParallelInterface
-from self_organising_systems.biomakerca.environments import ENV_TYPES
 from self_organising_systems.biomakerca.environments import EnvConfig
-from self_organising_systems.biomakerca.environments import is_agent_fn
-from self_organising_systems.biomakerca.environments import SPECIALIZATION_IDXS
 
 
 class AgentLogic(ABC):
@@ -131,7 +128,7 @@ class BasicAgentLogic(AgentLogic):
   def __init__(self, config: EnvConfig, perceive_ids=True, minimal_net=False):
     self.config = config
     # the types are perceived as one-hot vectors.
-    self.n_types = len(ENV_TYPES.keys())
+    self.n_types = len(config.etd.types.keys())
     self.n_spec = 4  # specializations of agents
     # Whether agent ids are perceivable by the agent.
     # if set to true, agents do not give energy to agents with different ids.
@@ -244,6 +241,8 @@ class BasicAgentLogic(AgentLogic):
     # Regardless of whether this is a minimal_net or not, the output is the same
     # output: specialization logits (n_spec)
     nsl_output_size = self.n_spec
+    etd = self.config.etd
+    spec_idxs = etd.specialization_idxs
 
     # Moreover, always have a simple linear layer with prewritten initialization
     # that determines how to change specialization.
@@ -255,38 +254,38 @@ class BasicAgentLogic(AgentLogic):
     b = jp.zeros([self.n_spec, nsl_output_size])
     w = jp.zeros([self.n_spec, self.n_types, nsl_output_size])
     # Earth discourages UNSPECIALIZED
-    w = w.at[:, ENV_TYPES.EARTH, SPECIALIZATION_IDXS.UNSPECIALIZED].set(-div)
+    w = w.at[:, etd.types.EARTH, spec_idxs.UNSPECIALIZED].set(-div)
     # Earth encourages ROOT
-    w = w.at[:, ENV_TYPES.EARTH, SPECIALIZATION_IDXS.ROOT].set(div)
+    w = w.at[:, etd.types.EARTH, spec_idxs.ROOT].set(div)
     # Air discourages UNSPECIALIZED
-    w = w.at[:, ENV_TYPES.AIR, SPECIALIZATION_IDXS.UNSPECIALIZED].set(-div)
+    w = w.at[:, etd.types.AIR, spec_idxs.UNSPECIALIZED].set(-div)
     # Air encourages LEAF
-    w = w.at[:, ENV_TYPES.AIR, SPECIALIZATION_IDXS.LEAF].set(div)
+    w = w.at[:, etd.types.AIR, spec_idxs.LEAF].set(div)
     # and so on...
     w = w.at[
-        :, ENV_TYPES.AGENT_UNSPECIALIZED, SPECIALIZATION_IDXS.UNSPECIALIZED
+        :, etd.types.AGENT_UNSPECIALIZED, spec_idxs.UNSPECIALIZED
     ].set(div / 8.0)
-    w = w.at[:, ENV_TYPES.AGENT_ROOT, SPECIALIZATION_IDXS.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.AGENT_ROOT, spec_idxs.UNSPECIALIZED].set(
         div / 8.0
     )
-    w = w.at[:, ENV_TYPES.AGENT_LEAF, SPECIALIZATION_IDXS.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.AGENT_LEAF, spec_idxs.UNSPECIALIZED].set(
         div / 8.0
     )
-    w = w.at[:, ENV_TYPES.AGENT_FLOWER, SPECIALIZATION_IDXS.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.AGENT_FLOWER, spec_idxs.UNSPECIALIZED].set(
         div / 8.0
     )
-    w = w.at[:, ENV_TYPES.EARTH, SPECIALIZATION_IDXS.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.EARTH, spec_idxs.UNSPECIALIZED].set(
         -div / 8.0
     )
-    w = w.at[:, ENV_TYPES.AIR, SPECIALIZATION_IDXS.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.AIR, spec_idxs.UNSPECIALIZED].set(
         -div / 8.0
     )
     # Flowers only grow if they are surrounded by leaves and some air.
-    w = w.at[:, ENV_TYPES.AGENT_LEAF, SPECIALIZATION_IDXS.FLOWER].set(div / 4.0)
-    w = w.at[:, ENV_TYPES.AIR, SPECIALIZATION_IDXS.FLOWER].set(div / 2.0)
+    w = w.at[:, etd.types.AGENT_LEAF, spec_idxs.FLOWER].set(div / 4.0)
+    w = w.at[:, etd.types.AIR, spec_idxs.FLOWER].set(div / 2.0)
 
     # If you are a flower, never change!
-    w = w.at[SPECIALIZATION_IDXS.FLOWER, :, SPECIALIZATION_IDXS.FLOWER].set(div)
+    w = w.at[spec_idxs.FLOWER, :, spec_idxs.FLOWER].set(div)
 
     if self.minimal_net:
       return w, b
@@ -336,7 +335,7 @@ class BasicAgentLogic(AgentLogic):
         self.config.dissipation_per_step * 6 + self.config.spawn_cost
         + self.config.specialize_cost * 2)
     # flowers keep a different amount of energy.
-    keep_en = keep_en.at[SPECIALIZATION_IDXS.FLOWER].set(
+    keep_en = keep_en.at[self.config.etd.specialization_idxs.FLOWER].set(
         self.config.dissipation_per_step * 7 + self.config.reproduce_cost
         + self.config.specialize_cost * 2)
     div = 1 / 10
@@ -401,7 +400,7 @@ class BasicAgentLogic(AgentLogic):
       # defaults to 0 if it is not an agent. It doesn't matter since nonagents
       # are later filtered out.
       neigh_spec = jax.nn.one_hot(
-          evm.get_agent_specialization_idx(neigh_type), 4)
+          self.config.etd.get_agent_specialization_idx(neigh_type), 4)
 
       def compute_logits_f(t_state, t_spec):
         inputs = jp.concatenate([norm_self_state, t_state, t_spec], -1)
@@ -415,7 +414,8 @@ class BasicAgentLogic(AgentLogic):
     denergy_neigh_logit = jax.nn.relu(denergy_neigh_logit)
 
     # now remove energy given to non agents.
-    is_neigh_agent_fe = is_agent_fn(neigh_type).astype(jp.float32)[:, None]
+    is_neigh_agent_fe = self.config.etd.is_agent_fn(neigh_type).astype(
+        jp.float32)[:, None]
     denergy_neigh_logit = denergy_neigh_logit * is_neigh_agent_fe
 
     denergy_neigh_perc = denergy_neigh_logit / denergy_neigh_logit.sum(
@@ -453,6 +453,7 @@ class BasicAgentLogic(AgentLogic):
     max_neigh_agent_avg = jp.array([3 / 8 - 0.1])
     spawn_prob_sensitivity = jp.array([30.])
 
+    spec_idxs = self.config.etd.specialization_idxs
     # For sp_idx, we want to output 9 logits to sample randomly from.
     # all versions have a bias that initializes these logits in a smart way.
     logits_output_size = 9
@@ -460,21 +461,19 @@ class BasicAgentLogic(AgentLogic):
     b = jp.zeros([self.n_spec, logits_output_size])
     div = 0.5
     # unspecialized can spawn wherever
-    b = b.at[
-        SPECIALIZATION_IDXS.UNSPECIALIZED, jp.array([0, 1, 2, 3, 5, 6, 7, 8])
-    ].set(div)
-    b = b.at[SPECIALIZATION_IDXS.UNSPECIALIZED, 4].set(-div * 2)  # not self
+    b = b.at[spec_idxs.UNSPECIALIZED, jp.array([0, 1, 2, 3, 5, 6, 7, 8])
+             ].set(div)
+    b = b.at[spec_idxs.UNSPECIALIZED, 4].set(-div * 2)  # not self
     # root spawns preferably below
-    b = b.at[SPECIALIZATION_IDXS.ROOT, jp.array([3, 5, 6, 7, 8])].set(div)
-    b = b.at[SPECIALIZATION_IDXS.ROOT, 4].set(-div * 2)  # not self
+    b = b.at[spec_idxs.ROOT, jp.array([3, 5, 6, 7, 8])].set(div)
+    b = b.at[spec_idxs.ROOT, 4].set(-div * 2)  # not self
     # leaf spawns preferably above
-    b = b.at[SPECIALIZATION_IDXS.LEAF, jp.array([0, 1, 2, 3, 5])].set(div)
-    b = b.at[SPECIALIZATION_IDXS.LEAF, 4].set(-div * 2)  # not self
+    b = b.at[spec_idxs.LEAF, jp.array([0, 1, 2, 3, 5])].set(div)
+    b = b.at[spec_idxs.LEAF, 4].set(-div * 2)  # not self
     # flowers can spawn wherever.
-    b = b.at[
-        SPECIALIZATION_IDXS.FLOWER, jp.array([0, 1, 2, 3, 5, 6, 7, 8])
-    ].set(div)
-    b = b.at[SPECIALIZATION_IDXS.FLOWER, 4].set(-div * 2)  # not self
+    b = b.at[spec_idxs.FLOWER, jp.array([0, 1, 2, 3, 5, 6, 7, 8])
+             ].set(div)
+    b = b.at[spec_idxs.FLOWER, 4].set(-div * 2)  # not self
 
     minimal_params = (b, min_en_for_spawn, max_neigh_agent_avg,
                       spawn_prob_sensitivity, spawn_en_perc)
@@ -571,7 +570,7 @@ class BasicAgentLogic(AgentLogic):
     self_type = neigh_type[4]
 
     # get cell specialization
-    spec_idx = evm.get_agent_specialization_idx(self_type)
+    spec_idx = self.config.etd.get_agent_specialization_idx(self_type)
 
     # compute dstate
     avg_neigh_types = self.get_avg_neigh_types(neigh_type)
@@ -625,9 +624,10 @@ class BasicAgentLogic(AgentLogic):
     norm_neigh_state = self.normalize_state(neigh_state)
     self_type = neigh_type[4]
     norm_self_en = norm_neigh_state[4, evm.EN_ST : evm.EN_ST + 2]
+    etd = self.config.etd
 
     # get cell specialization
-    spec_idx = evm.get_agent_specialization_idx(self_type)
+    spec_idx = etd.get_agent_specialization_idx(self_type)
 
     # spawn must not happen if you don't have enough energy
     # (based on dissipation per step and spawn cost).
@@ -639,7 +639,7 @@ class BasicAgentLogic(AgentLogic):
     # This is a probability depending on the average number of neighbors.
     avg_neigh_types = self.get_avg_neigh_types(neigh_type)
     avg_agents = avg_neigh_types[
-        ENV_TYPES.AGENT_UNSPECIALIZED : ENV_TYPES.AGENT_UNSPECIALIZED + 4
+        etd.types.AGENT_UNSPECIALIZED : etd.types.AGENT_UNSPECIALIZED + 4
     ].sum(-1)
     ku, key = jax.random.split(key)
     rand_prob_sp = (jr.uniform(ku) < jax.nn.sigmoid(
@@ -691,7 +691,7 @@ class BasicAgentLogic(AgentLogic):
     # spawn is already taken (there is an agent).
     # Note that this is largely useless, since the interface masks these out
     # anyway, and more than this.
-    sp_m *= 1.0 - is_agent_fn(neigh_type[sp_idx])
+    sp_m *= 1.0 - etd.is_agent_fn(neigh_type[sp_idx])
 
     # The perc energy to give is a parameter.
     # You could clip it to [0, 1] here, but the interface already takes care of
