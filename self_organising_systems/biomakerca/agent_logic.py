@@ -254,38 +254,38 @@ class BasicAgentLogic(AgentLogic):
     b = jp.zeros([self.n_spec, nsl_output_size])
     w = jp.zeros([self.n_spec, self.n_types, nsl_output_size])
     # Earth discourages UNSPECIALIZED
-    w = w.at[:, etd.types.EARTH, spec_idxs.UNSPECIALIZED].set(-div)
+    w = w.at[:, etd.types.EARTH, spec_idxs.AGENT_UNSPECIALIZED].set(-div)
     # Earth encourages ROOT
-    w = w.at[:, etd.types.EARTH, spec_idxs.ROOT].set(div)
+    w = w.at[:, etd.types.EARTH, spec_idxs.AGENT_ROOT].set(div)
     # Air discourages UNSPECIALIZED
-    w = w.at[:, etd.types.AIR, spec_idxs.UNSPECIALIZED].set(-div)
+    w = w.at[:, etd.types.AIR, spec_idxs.AGENT_UNSPECIALIZED].set(-div)
     # Air encourages LEAF
-    w = w.at[:, etd.types.AIR, spec_idxs.LEAF].set(div)
+    w = w.at[:, etd.types.AIR, spec_idxs.AGENT_LEAF].set(div)
     # and so on...
     w = w.at[
-        :, etd.types.AGENT_UNSPECIALIZED, spec_idxs.UNSPECIALIZED
+        :, etd.types.AGENT_UNSPECIALIZED, spec_idxs.AGENT_UNSPECIALIZED
     ].set(div / 8.0)
-    w = w.at[:, etd.types.AGENT_ROOT, spec_idxs.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.AGENT_ROOT, spec_idxs.AGENT_UNSPECIALIZED].set(
         div / 8.0
     )
-    w = w.at[:, etd.types.AGENT_LEAF, spec_idxs.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.AGENT_LEAF, spec_idxs.AGENT_UNSPECIALIZED].set(
         div / 8.0
     )
-    w = w.at[:, etd.types.AGENT_FLOWER, spec_idxs.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.AGENT_FLOWER, spec_idxs.AGENT_UNSPECIALIZED].set(
         div / 8.0
     )
-    w = w.at[:, etd.types.EARTH, spec_idxs.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.EARTH, spec_idxs.AGENT_UNSPECIALIZED].set(
         -div / 8.0
     )
-    w = w.at[:, etd.types.AIR, spec_idxs.UNSPECIALIZED].set(
+    w = w.at[:, etd.types.AIR, spec_idxs.AGENT_UNSPECIALIZED].set(
         -div / 8.0
     )
     # Flowers only grow if they are surrounded by leaves and some air.
-    w = w.at[:, etd.types.AGENT_LEAF, spec_idxs.FLOWER].set(div / 4.0)
-    w = w.at[:, etd.types.AIR, spec_idxs.FLOWER].set(div / 2.0)
+    w = w.at[:, etd.types.AGENT_LEAF, spec_idxs.AGENT_FLOWER].set(div / 4.0)
+    w = w.at[:, etd.types.AIR, spec_idxs.AGENT_FLOWER].set(div / 2.0)
 
     # If you are a flower, never change!
-    w = w.at[spec_idxs.FLOWER, :, spec_idxs.FLOWER].set(div)
+    w = w.at[spec_idxs.AGENT_FLOWER, :, spec_idxs.AGENT_FLOWER].set(div)
 
     if self.minimal_net:
       return w, b
@@ -335,7 +335,7 @@ class BasicAgentLogic(AgentLogic):
         self.config.dissipation_per_step * 6 + self.config.spawn_cost
         + self.config.specialize_cost * 2)
     # flowers keep a different amount of energy.
-    keep_en = keep_en.at[self.config.etd.specialization_idxs.FLOWER].set(
+    keep_en = keep_en.at[self.config.etd.specialization_idxs.AGENT_FLOWER].set(
         self.config.dissipation_per_step * 7 + self.config.reproduce_cost
         + self.config.specialize_cost * 2)
     div = 1 / 10
@@ -461,19 +461,19 @@ class BasicAgentLogic(AgentLogic):
     b = jp.zeros([self.n_spec, logits_output_size])
     div = 0.5
     # unspecialized can spawn wherever
-    b = b.at[spec_idxs.UNSPECIALIZED, jp.array([0, 1, 2, 3, 5, 6, 7, 8])
+    b = b.at[spec_idxs.AGENT_UNSPECIALIZED, jp.array([0, 1, 2, 3, 5, 6, 7, 8])
              ].set(div)
-    b = b.at[spec_idxs.UNSPECIALIZED, 4].set(-div * 2)  # not self
+    b = b.at[spec_idxs.AGENT_UNSPECIALIZED, 4].set(-div * 2)  # not self
     # root spawns preferably below
-    b = b.at[spec_idxs.ROOT, jp.array([3, 5, 6, 7, 8])].set(div)
-    b = b.at[spec_idxs.ROOT, 4].set(-div * 2)  # not self
+    b = b.at[spec_idxs.AGENT_ROOT, jp.array([3, 5, 6, 7, 8])].set(div)
+    b = b.at[spec_idxs.AGENT_ROOT, 4].set(-div * 2)  # not self
     # leaf spawns preferably above
-    b = b.at[spec_idxs.LEAF, jp.array([0, 1, 2, 3, 5])].set(div)
-    b = b.at[spec_idxs.LEAF, 4].set(-div * 2)  # not self
+    b = b.at[spec_idxs.AGENT_LEAF, jp.array([0, 1, 2, 3, 5])].set(div)
+    b = b.at[spec_idxs.AGENT_LEAF, 4].set(-div * 2)  # not self
     # flowers can spawn wherever.
-    b = b.at[spec_idxs.FLOWER, jp.array([0, 1, 2, 3, 5, 6, 7, 8])
+    b = b.at[spec_idxs.AGENT_FLOWER, jp.array([0, 1, 2, 3, 5, 6, 7, 8])
              ].set(div)
-    b = b.at[spec_idxs.FLOWER, 4].set(-div * 2)  # not self
+    b = b.at[spec_idxs.AGENT_FLOWER, 4].set(-div * 2)  # not self
 
     minimal_params = (b, min_en_for_spawn, max_neigh_agent_avg,
                       spawn_prob_sensitivity, spawn_en_perc)

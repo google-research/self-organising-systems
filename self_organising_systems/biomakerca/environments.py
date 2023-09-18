@@ -80,14 +80,42 @@ AIR_NUTRIENT_RPOS = 1
 
 ### Environment types.
 
+def make_env_types(materials, agent_types):
+  """Utility function to make env_type enum dictionary.
+
+  Args:
+    materials: List of strings of material types.
+    agent_types: List of strings of agent types.
+  Returns:
+    a dotdict to represent the enum of all env types. The enum has increasing 
+    values, starting from 0 for materials and then continuing with agent_types.
+  """
+  n_mats = len(materials)
+  return dotdict({k: v for k, v in zip(materials, range(n_mats))},
+                 **{k: v for k, v in zip(
+                     agent_types, range(n_mats, n_mats + len(agent_types)))})
+
+def make_specialization_idxs(agent_types):
+  """Utility function to make specialization_idxs enum dictionary.
+
+  Args:
+    agent_types: List of strings of agent types.
+  Returns:
+    a dotdict to represent the order of agent_types.
+  """
+  return dotdict({k: v for k, v in zip(agent_types, range(len(agent_types)))})
+
+
 class EnvTypeDef(ABC):
   """Base class for defining environment types and their behaviors.
   
   Attributes:
     types: Enum for all possible cell types. Note that they are not unsigned 
       ints, since python doesn't have such a thing, but they should be treated 
-      as such. See DEFAULT_ENV_TYPES for an example of the minimal cell types 
-      needed and what they do.
+      as such. See DEFAULT_MATERIALS and DEFAULT_AGENT_TYPES for an example of 
+      the minimal cell types needed and what they do.
+    materials_list: List of strings containing the names of materials. This 
+      excludes agent types, which are stored in a different way.
     agent_types: The only materials that can have programs to be executed. A jp
       array.
     intangible_mats: Intangible materials. Gravity will allow for elements to 
@@ -118,7 +146,11 @@ class EnvTypeDef(ABC):
       specialization. A jp array of size (n_specializations, 2).
     type_color_map: A map of type to color. Useful for visualizations.
       A jp array of size (n_types, 3).
-  
+
+  __create_types__ is highly recommended to be called as a first step during 
+  initialization. This way, types, specialization_idxs, agent_types and
+  materials_list will be initialized in a consistent way.
+
   __post_init__ should be called at the end of the subclass __init__ to make 
   sure that all attributes are initialized.
   """
@@ -128,38 +160,49 @@ class EnvTypeDef(ABC):
 
   def _has_required_attributes(self):
     req_attrs = [
-        "types", "agent_types", "intangible_mats", "gravity_mats",
-        "structural_mats", "propagate_structure_mats", "agent_spawnable_mats",
-        "specialization_idxs", "structure_decay_mats",
+        "types", "materials_list", "agent_types", "intangible_mats", 
+        "gravity_mats", "structural_mats", "propagate_structure_mats", 
+        "agent_spawnable_mats", "specialization_idxs", "structure_decay_mats",
         "dissipation_rate_per_spec", "type_color_map"]
     for attr in req_attrs:
       if not hasattr(self, attr):
         raise AttributeError(f"Missing attribute: '{attr}'")
 
-  @abstractmethod
+  def __create_types__(self, materials, agent_types):
+    # save materials as a list. Used for get_agent_specialization_idx and
+    # get_agent_type_from_spec_idx.
+    self.materials_list = materials
+    # create types
+    self.types = make_env_types(materials, agent_types)
+    # create specialization_idxs
+    self.specialization_idxs = make_specialization_idxs(agent_types)
+    # convert agent_types into a jp array
+    self.agent_types = jp.array(
+        [self.types[t] for t in agent_types], dtype=jp.int32)
+
   def get_agent_specialization_idx(self, env_type):
     """Return the index of the agent specialization.
     
     This function must be compatible with self.specialization_idxs and types. 
-    This means that if specialization_idxs.LEAF == 2, then 
-    self.get_agent_specialization_idx(type.LEAF) == 2
+    This means that if specialization_idxs.AGENT_LEAF == 2, then 
+    self.get_agent_specialization_idx(type.AGENT_LEAF) == 2
     Works for any dimensionality.
     If the input is not an agent, return 0.
     """
-    raise NotImplementedError
+    return jp.array(env_type - len(self.materials_list)).clip(0).astype(jp.uint32)
 
-  @abstractmethod
   def get_agent_type_from_spec_idx(self, spec_idx):
     """Return the agent_type (uint32) from the specialization index.
-    
+
     This function must be compatible with specialization_idxs and types.
-    Essentially, self.get_agent_type_from_spec_idx(specialization_idxs.LEAF) ==
-    type.LEAF, and so on.
-    
+    Essentially,
+    self.get_agent_type_from_spec_idx(specialization_idxs.AGENT_LEAF) ==
+    type.AGENT_LEAF, and so on.
+
     Works for any dimensionality.
     It assumes that the input is a valid specialization index.
     """
-    raise NotImplementedError
+    return jp.array(len(self.materials_list) + spec_idx).astype(jp.uint32)
 
   def is_agent_fn(self, env_type):
     """Return true if the cell is an agent. Works for any input dimensionality.
@@ -167,94 +210,94 @@ class EnvTypeDef(ABC):
     return (env_type[..., None] == self.agent_types).any(axis=-1)
 
 
-DEFAULT_ENV_TYPES = dotdict({
+DEFAULT_MATERIALS = [
     # Void: an 'empty' space. This is intangible and can be filled by anything.
     #   In particular, Air spreads through void. Flowers, when they reproduce,
     #   turn into void.
-    "VOID": 0,
+    "VOID",
     # Air: Intangible material; propagates air nutrients and Leaf agents can
     #   extract nutrients from them.
-    "AIR": 1,
+    "AIR",
     # Earth: Propagates earth nutrients and Root agents can extract nutrients 
     #   from them. Subject to gravity and structural propagation.
-    "EARTH": 2,
+    "EARTH",
     # Immovable: A hard type that cannot be passed through and does not suffer
     #   from gravity. Moreover, it _generates_ earth nutrients and structural
     #   integrity.
-    "IMMOVABLE": 3,
+    "IMMOVABLE",
     # Sun: Sunrays; generates air nutrients and it is intangible.
-    "SUN": 4,
+    "SUN",
     # Out of Bounds: This material only appears when being at the edge of an
     #   environment and observing neighbours out of bounds.
-    "OUT_OF_BOUNDS": 5,
-    ## Agents: any of the below are considered 'agents'. All agents can spawn
-    #   new agents and can transfer nutrients among each other.
+    "OUT_OF_BOUNDS",
+]
+
+DEFAULT_AGENT_TYPES = [
     # Unspecialized: the starting point of any organism, and the result of a
     #   spawn operation. They *tend* to consume fewer nutrients.
-    "AGENT_UNSPECIALIZED": 6,
+    "AGENT_UNSPECIALIZED",
     # Root: Capable of absorbing earth nutrients.
-    "AGENT_ROOT": 7,
+    "AGENT_ROOT",
     # Leaf: Capable of absorbing air nutrients.
-    "AGENT_LEAF": 8,
+    "AGENT_LEAF",
     # Flower: Capable of performing a reproduce operation. They *tend* to
     #   consume more nutrients.
-    "AGENT_FLOWER": 9,
-})
-
-# Index order for agent specializations. Useful for code clarity.
-DEFAULT_SPECIALIZATION_IDXS = dotdict({
-    "UNSPECIALIZED": 0,
-    "ROOT": 1,
-    "LEAF": 2,
-    "FLOWER": 3,
-})
-
-def default_get_agent_specialization_idx(self, env_type):
-  """Works with DEFAULT_ENV_TYPES and DEFAULT_SPECIALIZATION_IDXS."""
-  return (env_type - 6).clip(0).astype(jp.uint32)
-
-def default_get_agent_type_from_spec_idx(self, spec_idx):
-  """Works with DEFAULT_ENV_TYPES and DEFAULT_SPECIALIZATION_IDXS."""
-  return (6 + spec_idx).astype(jp.uint32)
-
+    "AGENT_FLOWER",
+]
 
 # indexed by the type, it tells how much structure decays.
 # values should not matter for non structurally propagating cells.
-DEFAULT_STRUCTURE_DECAY_MATS = jp.array([
-    -1, # void
-    -1, # air
-    1,  # earth
-    0,  # immovable
-    -1, # sun
-    -1, # out of bounds
-    5,  # agent unspecialized
-    5,  # agent root
-    5,  # agent leaf
-    5,  # agent flower
-    ], dtype=jp.int32)
+DEFAULT_STRUCTURE_DECAY_MATS_DICT = {
+    "VOID": -1,
+    "AIR": -1,
+    "EARTH": 1,
+    "IMMOVABLE": 0,
+    "SUN": -1,
+    "OUT_OF_BOUNDS": -1,
+    "AGENT_UNSPECIALIZED": 5,
+    "AGENT_ROOT": 5,
+    "AGENT_LEAF": 5,
+    "AGENT_FLOWER": 5,
+}
 
 # A modifier of the dissipation based on the agent specialization.
-# The y axis HERE is ordered like in SPECIALIZATION_IDXS.
-# Note, however, the .T (transpose) at the end. So the result is an array of
-# size (n_specializations, 2)
-DEFAULT_DISSIPATION_RATE_PER_SPEC = jp.array([
-    [0.5, 1.0, 1.0, 1.2], # cell specialization for EARTH nutrient
-    [0.5, 1.0, 1.0, 1.2]  # for AIR nutrient
-    ]).T
+# the first element is for the earth nutrients, the second element is for the 
+# air nutrients.
+DEFAULT_DISSIPATION_RATE_PER_SPEC_DICT = {
+    "AGENT_UNSPECIALIZED": jp.array([0.5, 0.5]),
+    "AGENT_ROOT": jp.array([1.0, 1.0]),
+    "AGENT_LEAF": jp.array([1.0, 1.0]),
+    "AGENT_FLOWER": jp.array([1.2, 1.2]),
+}
 
 # Colors for visualising the default types.
-DEFAULT_TYPE_COLOR_MAP = jp.array([
-    [1., 1., 1.], # 0: Void
-    [0.84, 1., 1.], # 1: Air
-    [0.769, 0.643, 0.518], # 2: Earth
-    [0., 0., 0.], # 3: Immovable
-    [1., 1., 0.5], # 4: Sun
-    [1., 0., 0.], # 5: Out of bounds, error color (should not use this)
-    [0.65, 0.68, 0.65], # 6: Agent Unspecialized
-    [0.52, 0.39, 0.14], # 7: Agent Root
-    [0.16, 0.49, 0.10], # 8: Agent Leaf
-    [1., 0.42, 0.71], # 9: Agent Flower
-    ])
+DEFAULT_TYPE_COLOR_DICT = {
+    "VOID": jp.array([1., 1., 1.]),
+    "AIR": jp.array([0.84, 1., 1.]),
+    "EARTH": jp.array([0.769, 0.643, 0.518]),
+    "IMMOVABLE": jp.array([0., 0., 0.]),
+    "SUN": jp.array([1., 1., 0.5]),
+    "OUT_OF_BOUNDS": jp.array([1., 0., 0.]),  # error color (should not be seen)
+    "AGENT_UNSPECIALIZED": jp.array([0.65, 0.68, 0.65]),
+    "AGENT_ROOT": jp.array([0.52, 0.39, 0.14]),
+    "AGENT_LEAF": jp.array([0.16, 0.49, 0.10]),
+    "AGENT_FLOWER": jp.array([1., 0.42, 0.71]),
+}
+
+def convert_string_dict_to_type_array(d, types):
+  """Converts a string dict to a type indexed array.
+  Useful for creating type_color_map from a type_color_dict and 
+  structure_decay_mats from structure_decay_dict.
+  """
+  idxs, vals = zip(*[(types[k], v) for k, v in d.items()])
+  idxs = jp.array(idxs)
+  vals = jp.array(vals)
+  v_type = jp.array(vals[0]).dtype
+  v0_shape = jp.array(vals[0]).shape
+  res_shape = [len(types)]
+  if v0_shape:
+    res_shape.append(v0_shape[0])
+  return jp.zeros(res_shape, dtype=v_type).at[idxs].set(vals)
 
 
 class DefaultTypeDef(EnvTypeDef):
@@ -262,14 +305,12 @@ class DefaultTypeDef(EnvTypeDef):
   
   This etd is used in the original Biomaker CA paper.
   """
-  
-  def __init__(self):
-    types = DEFAULT_ENV_TYPES
-    self.types = types
 
-    self.agent_types = jp.array([
-        types.AGENT_UNSPECIALIZED, types.AGENT_ROOT,
-        types.AGENT_LEAF, types.AGENT_FLOWER], dtype=jp.int32)
+  def __init__(self):
+    # initialize types, specialization_idxs, agent_types, materials_list
+    super().__create_types__(DEFAULT_MATERIALS, DEFAULT_AGENT_TYPES)
+    types = self.types
+    # setup material specific properties.
     self.intangible_mats = jp.array([types.VOID, types.AIR, types.SUN],
                                     dtype=jp.int32)
     self.gravity_mats = jp.concatenate([
@@ -280,18 +321,16 @@ class DefaultTypeDef(EnvTypeDef):
     self.agent_spawnable_mats = jp.array([
         types.VOID, types.AIR, types.EARTH], dtype=jp.int32)
 
-    self.specialization_idxs = DEFAULT_SPECIALIZATION_IDXS
+    self.structure_decay_mats = convert_string_dict_to_type_array(
+        DEFAULT_STRUCTURE_DECAY_MATS_DICT, types)
+    self.dissipation_rate_per_spec = convert_string_dict_to_type_array(
+        DEFAULT_DISSIPATION_RATE_PER_SPEC_DICT, self.specialization_idxs)
 
-    self.structure_decay_mats = DEFAULT_STRUCTURE_DECAY_MATS
-    self.dissipation_rate_per_spec = DEFAULT_DISSIPATION_RATE_PER_SPEC
-
-    self.type_color_map = DEFAULT_TYPE_COLOR_MAP
+    self.type_color_map = convert_string_dict_to_type_array(
+        DEFAULT_TYPE_COLOR_DICT, types)
 
     # Class abstraction checks for attributes.
     super().__post_init__()
-
-  get_agent_specialization_idx = default_get_agent_specialization_idx
-  get_agent_type_from_spec_idx = default_get_agent_type_from_spec_idx
 
 ### EnvConfig
 # These are the configurations that make environments have different laws of
