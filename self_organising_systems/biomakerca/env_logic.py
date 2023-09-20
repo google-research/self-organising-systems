@@ -1432,12 +1432,11 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
   return Environment(new_type_grid, new_state_grid, new_agent_id_grid)
 
 
-### Processing age of agents.
-
+### Processing age.
 
 def env_increase_age(env: Environment, etd: EnvTypeDef) -> Environment:
-  """Increase the age of all agents by 1."""
-  is_agent_m = etd.is_agent_fn(env.type_grid).astype(jp.float32)
+  """Increase the age of all aging materials by 1."""
+  is_aging_m = (env.type_grid[..., None] == etd.aging_mats).any(axis=-1)
   new_state_grid = env.state_grid.at[:,:, evm.AGE_IDX].set(
-      env.state_grid[:,:, evm.AGE_IDX] + is_agent_m)
+      env.state_grid[:,:, evm.AGE_IDX] + is_aging_m)
   return evm.update_env_state_grid(env, new_state_grid)

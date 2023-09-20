@@ -137,6 +137,8 @@ class EnvTypeDef(ABC):
       In practice, this is where agents can perform 'spawn' operations (and 
       reproduce ops too). There is extra leeway to allow for agent movement with
       this feature, but for now, agents cannot move.
+    aging_mats: Materials that age at every step. For instance, all agent cells
+      are expected to age.
     specialization_idxs: Index order for agent specializations. Useful for code 
       clarity.
     structure_decay_mats: Indexed by the type enum, it tells how much structure
@@ -163,7 +165,7 @@ class EnvTypeDef(ABC):
         "types", "materials_list", "agent_types", "intangible_mats", 
         "gravity_mats", "structural_mats", "propagate_structure_mats", 
         "agent_spawnable_mats", "specialization_idxs", "structure_decay_mats",
-        "dissipation_rate_per_spec", "type_color_map"]
+        "aging_mats", "dissipation_rate_per_spec", "type_color_map"]
     for attr in req_attrs:
       if not hasattr(self, attr):
         raise AttributeError(f"Missing attribute: '{attr}'")
@@ -320,9 +322,10 @@ class DefaultTypeDef(EnvTypeDef):
         types.EARTH, types.IMMOVABLE], dtype=jp.int32), self.agent_types], 0)
     self.agent_spawnable_mats = jp.array([
         types.VOID, types.AIR, types.EARTH], dtype=jp.int32)
-
     self.structure_decay_mats = convert_string_dict_to_type_array(
         DEFAULT_STRUCTURE_DECAY_MATS_DICT, types)
+    self.aging_mats = self.agent_types
+    
     self.dissipation_rate_per_spec = convert_string_dict_to_type_array(
         DEFAULT_DISSIPATION_RATE_PER_SPEC_DICT, self.specialization_idxs)
 
