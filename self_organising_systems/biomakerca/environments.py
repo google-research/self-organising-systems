@@ -227,7 +227,7 @@ DEFAULT_MATERIALS = [
     #   from gravity. Moreover, it _generates_ earth nutrients and structural
     #   integrity.
     "IMMOVABLE",
-    # Sun: Sunrays; generates air nutrients and it is intangible.
+    # Sun: Sunrays; generates air nutrients. Can't be interacted with.
     "SUN",
     # Out of Bounds: This material only appears when being at the edge of an
     #   environment and observing neighbours out of bounds.
@@ -274,16 +274,16 @@ DEFAULT_DISSIPATION_RATE_PER_SPEC_DICT = {
 
 # Colors for visualising the default types.
 DEFAULT_TYPE_COLOR_DICT = {
-    "VOID": jp.array([1., 1., 1.]),
-    "AIR": jp.array([0.84, 1., 1.]),
-    "EARTH": jp.array([0.769, 0.643, 0.518]),
-    "IMMOVABLE": jp.array([0., 0., 0.]),
-    "SUN": jp.array([1., 1., 0.5]),
+    "VOID": jp.array([1., 1., 1.]),  # RGB: 255,255,255
+    "AIR": jp.array([0.84, 1., 1.]),  # RGB: 217,255,255
+    "EARTH": jp.array([0.769, 0.643, 0.518]),  # RGB: 198,164,132
+    "IMMOVABLE": jp.array([0., 0., 0.]),  # RGB: 0,0,0
+    "SUN": jp.array([1., 1., 0.5]),  # RGB: 255,255,127
     "OUT_OF_BOUNDS": jp.array([1., 0., 0.]),  # error color (should not be seen)
-    "AGENT_UNSPECIALIZED": jp.array([0.65, 0.68, 0.65]),
-    "AGENT_ROOT": jp.array([0.52, 0.39, 0.14]),
-    "AGENT_LEAF": jp.array([0.16, 0.49, 0.10]),
-    "AGENT_FLOWER": jp.array([1., 0.42, 0.71]),
+    "AGENT_UNSPECIALIZED": jp.array([0.65, 0.68, 0.65]),  # RGB: 166,173,166
+    "AGENT_ROOT": jp.array([0.52, 0.39, 0.14]),  # RGB: 133,99,36
+    "AGENT_LEAF": jp.array([0.16, 0.49, 0.10]),  # RGB: 41,125,26
+    "AGENT_FLOWER": jp.array([1., 0.42, 0.71]),  # RGB: 255,107,181
 }
 
 def convert_string_dict_to_type_array(d, types):
@@ -313,8 +313,7 @@ class DefaultTypeDef(EnvTypeDef):
     super().__create_types__(DEFAULT_MATERIALS, DEFAULT_AGENT_TYPES)
     types = self.types
     # setup material specific properties.
-    self.intangible_mats = jp.array([types.VOID, types.AIR, types.SUN],
-                                    dtype=jp.int32)
+    self.intangible_mats = jp.array([types.VOID, types.AIR], dtype=jp.int32)
     self.gravity_mats = jp.concatenate([
         jp.array([types.EARTH], dtype=jp.int32), self.agent_types], 0)
     self.structural_mats = self.agent_types
