@@ -28,3 +28,9 @@ vmap2 = lambda f: vmap(vmap(f))
 
 def split_2d(key, w, h):
   return vmap(lambda k: jr.split(k, h))(jr.split(key, w))
+
+
+def conditional_update(arr, idx, val, cond):
+  """Update arr[idx] to val if cond is True."""
+  return arr.at[idx].set((1 - cond) * arr[idx] + cond * val)
+

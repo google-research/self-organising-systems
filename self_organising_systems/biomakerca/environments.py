@@ -303,16 +303,37 @@ def convert_string_dict_to_type_array(d, types):
 
 
 class DefaultTypeDef(EnvTypeDef):
-  """Example implementation of EnvTypeDef.
+  """Default implementation of EnvTypeDef.
   
-  This etd is used in the original Biomaker CA paper.
+  This etd, with its default values, is used in the original Biomaker CA paper.
+  
+  If you are subclassing this ETD, remember to call super() during init, and
+  override the relevant properties of mats, such as gravity_mats.
   """
 
-  def __init__(self):
+  def __init__(
+      self, materials=DEFAULT_MATERIALS,
+      agent_types=DEFAULT_AGENT_TYPES,
+      structure_decay_mats_dict=DEFAULT_STRUCTURE_DECAY_MATS_DICT,
+      dissipation_rate_per_spec_dict=DEFAULT_DISSIPATION_RATE_PER_SPEC_DICT,
+      type_color_dict=DEFAULT_TYPE_COLOR_DICT):
+    """Initialization of DefaultTypeDef.
+      
+    Args:
+      materials: List of strings of material types.
+      agent_types: List of strings of agent types.
+      structure_decay_mats_dict: dictionary of agent type strings and structural
+        decay values.
+      dissipation_rate_per_spec_dict: dictionary of agent type strings and 
+        modifiers of the dissipation based on the agent specialization.
+      type_color_dict: dictionary of agent type strings and rgb colors for 
+        visualising them.
+    """
     # initialize types, specialization_idxs, agent_types, materials_list
-    super().__create_types__(DEFAULT_MATERIALS, DEFAULT_AGENT_TYPES)
+    super().__create_types__(materials, agent_types)
     types = self.types
-    # setup material specific properties.
+    # setup material specific properties. If you are subclassing this, consider
+    # changing these values manually.
     self.intangible_mats = jp.array([types.VOID, types.AIR], dtype=jp.int32)
     self.gravity_mats = jp.concatenate([
         jp.array([types.EARTH], dtype=jp.int32), self.agent_types], 0)
@@ -322,14 +343,14 @@ class DefaultTypeDef(EnvTypeDef):
     self.agent_spawnable_mats = jp.array([
         types.VOID, types.AIR, types.EARTH], dtype=jp.int32)
     self.structure_decay_mats = convert_string_dict_to_type_array(
-        DEFAULT_STRUCTURE_DECAY_MATS_DICT, types)
+        structure_decay_mats_dict, types)
     self.aging_mats = self.agent_types
-    
+
     self.dissipation_rate_per_spec = convert_string_dict_to_type_array(
-        DEFAULT_DISSIPATION_RATE_PER_SPEC_DICT, self.specialization_idxs)
+        dissipation_rate_per_spec_dict, self.specialization_idxs)
 
     self.type_color_map = convert_string_dict_to_type_array(
-        DEFAULT_TYPE_COLOR_DICT, types)
+        type_color_dict, types)
 
     # Class abstraction checks for attributes.
     super().__post_init__()
