@@ -390,8 +390,7 @@ class EnvConfig:
   Attributes:
     agent_state_size: size of the internal states of agents.
     etd: the EnvTypeDef defining all cell types and some of their properties.
-    env_state_size: the total size of each cell. It is:
-      'number of agent specializations' + agent_state_size
+    env_state_size: the total size of each cell. It is: 4 + agent_state_size
     struct_integrity_cap: the maximum value of structural integrity.
       This is what gets propagated by IMMUTABLE materials. Structural integrity
       decays the further away it goes from IMMUTABLE mats. If 0, gravity mats 
@@ -438,9 +437,7 @@ class EnvConfig:
                max_lifetime=int(1e6)):
     self.agent_state_size = agent_state_size
     self.etd = etd
-    # this depends on how many specializations are actually there.
-    n_specs = len(etd.specialization_idxs.values())
-    self.env_state_size = n_specs + self.agent_state_size
+    self.env_state_size = 4 + self.agent_state_size
     self.struct_integrity_cap = struct_integrity_cap
     self.absorbtion_amounts = absorbtion_amounts
     self.dissipation_per_step = dissipation_per_step
