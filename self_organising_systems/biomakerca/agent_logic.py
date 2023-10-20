@@ -32,6 +32,7 @@ from self_organising_systems.biomakerca.env_logic import ReproduceInterface
 from self_organising_systems.biomakerca.env_logic import SpawnOpData
 from self_organising_systems.biomakerca.env_logic import ParallelInterface
 from self_organising_systems.biomakerca.environments import EnvConfig
+from self_organising_systems.biomakerca.utils import stringify_class
 
 
 class AgentLogic(ABC):
@@ -92,6 +93,9 @@ class AgentLogic(ABC):
     Return a ReproduceInterface.
     """
     pass
+
+  def __str__(self):
+    return stringify_class(self)
 
 
 def clip_residual(s, ds, clip_val):
@@ -189,6 +193,9 @@ class BasicAgentLogic(AgentLogic):
         (self.dsm_num_params, self.dsm_num_params + self.nsl_num_params),
         axis=-1,
     )
+
+  def __str__(self):
+    return stringify_class(self, include_list=["perceive_ids", "minimal_net"])
 
   def split_params_f(
       self, params: AgentProgramType

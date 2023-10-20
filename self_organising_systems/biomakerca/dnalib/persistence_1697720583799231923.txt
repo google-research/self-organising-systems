@@ -1,0 +1,8 @@
+dna: persistence_1697720583799231923
+EnvConfig: {agent_state_size: 2, etd: DefaultTypeDef: {materials_list: ['VOID', 'AIR', 'EARTH', 'IMMOVABLE', 'SUN', 'OUT_OF_BOUNDS'], types: {'VOID': 0, 'AIR': 1, 'EARTH': 2, 'IMMOVABLE': 3, 'SUN': 4, 'OUT_OF_BOUNDS': 5, 'AGENT_UNSPECIALIZED': 6, 'AGENT_ROOT': 7, 'AGENT_LEAF': 8, 'AGENT_FLOWER': 9}, specialization_idxs: {'AGENT_UNSPECIALIZED': 0, 'AGENT_ROOT': 1, 'AGENT_LEAF': 2, 'AGENT_FLOWER': 3}, agent_types: [6 7 8 9], intangible_mats: [0 1], gravity_mats: [2 6 7 8 9], structural_mats: [6 7 8 9], propagate_structure_mats: [2 3 6 7 8 9], agent_spawnable_mats: [0 1 2], structure_decay_mats: [-1 -1  1  0 -1 -1  5  5  5  5], aging_mats: [6 7 8 9], dissipation_rate_per_spec: [[0.5 0.5],  [1.  1. ],  [1.  1. ],  [1.2 1.2]]}, env_state_size: 6, struct_integrity_cap: 200, absorbtion_amounts: [0.25 0.25], dissipation_per_step: [0.01 0.01], spawn_cost: [0.75 0.75], reproduce_cost: [1. 1.], specialize_cost: [0.02 0.02], reproduce_min_dist: 15, reproduce_max_dist: 35, n_reproduce_per_step: 2, nutrient_cap: [10. 10.], material_nutrient_cap: [10. 10.], max_lifetime: 10000}
+BasicAgentLogic: {perceive_ids: True, minimal_net: False}
+BasicMutator: {sd: 0.0001, change_perc: 0.2}
+env_h: 16
+env_w: 28
+author: oteret
+notes: This dna was trained with petri meta evolution. So, no mutator was used. But I tested and it definitely works with BasicMutators and sd of 1e-4. In some cases, 1e-3. See the notebook evolving_in_small_worlds.ipynb for more context.

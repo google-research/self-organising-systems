@@ -24,6 +24,7 @@ from abc import ABC, abstractmethod
 
 import jax.numpy as jp
 import jax.random as jr
+from self_organising_systems.biomakerca.utils import stringify_class
 
 class Mutator(ABC):
   """Interface of all mutators.
@@ -58,6 +59,9 @@ class Mutator(ABC):
     p must be one-dimensional.
     """
     pass
+
+  def __str__(self):
+    return stringify_class(self)
 
 
 class BasicMutator(Mutator):

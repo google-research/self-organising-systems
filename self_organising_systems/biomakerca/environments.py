@@ -29,6 +29,7 @@ from jax import numpy as jp
 
 from self_organising_systems.biomakerca.utils import dotdict
 from self_organising_systems.biomakerca.utils import vmap2
+from self_organising_systems.biomakerca.utils import stringify_class
 
 ### Environment
 # This is the state of any given environment. It is made of 3 grids:
@@ -210,6 +211,9 @@ class EnvTypeDef(ABC):
     """Return true if the cell is an agent. Works for any input dimensionality.
     """
     return (env_type[..., None] == self.agent_types).any(axis=-1)
+  
+  def __str__(self):
+    return stringify_class(self, exclude_list=["type_color_map"])
 
 
 DEFAULT_MATERIALS = [
@@ -451,6 +455,8 @@ class EnvConfig:
     self.material_nutrient_cap = material_nutrient_cap
     self.max_lifetime = max_lifetime
 
+  def __str__(self):
+    return stringify_class(self)
 
 
 ### Helpers for making environments.
