@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import time
+import pkg_resources
 
 from jax import vmap
 import jax.random as jr
@@ -112,14 +113,24 @@ def save_dna(dna, configuration_name, config, agent_logic, mutator, env_h=None,
   return out_file_path
 
 
-def load_dna(file):
+def load_dna(file, load_from_this_package=True):
   """Load a dna from a .npy file.
-  
+
+  If load_from_this_package is True, we load from this package's dnalib dir.
+  Otherwise, we load from the given file path.
+
   This is the recommended way to load a dna, since it doesn't allow pickle,
   which is a potential risk.
-  if the file given is without the '.npy' suffix, it will be added.
+  If the file given is without the '.npy' suffix, it will be added.
   """
   if not file.lower().endswith(".npy"):
     file = file + ".npy"
+  if load_from_this_package:
+    # extract from dnalib
+    resource_package = "self_organising_systems"
+    resource_path = '/'.join(("biomakerca", "dnalib", file))
+    fstream = pkg_resources.resource_stream(resource_package, resource_path)
+    return jp.load(fstream, allow_pickle=False)
   with open(file, "rb") as f:
     return jp.load(f, allow_pickle=False)
+  
