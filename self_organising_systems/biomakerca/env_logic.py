@@ -854,7 +854,7 @@ def find_fertile_soil(type_grid, etd):
   # note that these indexes now would return the position of the 'high-end' of 
   # the seed. That is, the idx is where the top cell (leaf) would be, and idx+1 
   # would be where the bottom (root) cell would be.
-  best_idx_per_column = (mask * jp.arange(mask.shape[0], 0, -1)[:, None]
+  best_idx_per_column = (mask * jp.arange(mask.shape[0]+1, 1, -1)[:, None]
                          ).argmax(axis=0)
   # We need to make sure that it is a valid position, so:
   column_m = mask[best_idx_per_column, jp.arange(mask.shape[1])]
@@ -895,20 +895,9 @@ def env_perform_one_reproduce_op(
 
     def true_fn2(env):
       t_row = best_idx_per_column[t_column]
-      type_grid = jax.lax.dynamic_update_slice(
-          env.type_grid,
-          jp.full((2, 1), etd.types.AGENT_UNSPECIALIZED, dtype=jp.uint32),
-          (t_row, t_column))
-      new_states = jp.zeros([2, 1, config.env_state_size])
-      # this by default resets age.
-      new_states = jax.lax.dynamic_update_slice(
-          new_states, jp.repeat((stored_en/2)[None, None,:], 2, axis=0),
-          (t_row, t_column, evm.EN_ST))
-      state_grid = jax.lax.dynamic_update_slice(
-          env.state_grid, new_states, (t_row, t_column, 0))
-      agent_id_grid = jax.lax.dynamic_update_slice(
-          env.agent_id_grid, jp.repeat(aid, 2)[:, None], (t_row, t_column))
-      return Environment(type_grid, state_grid, agent_id_grid)
+      return evm.place_seed(
+          env, t_column, config, row_optional=t_row, aid=aid,
+          custom_agent_init_nutrient=stored_en/2)
 
     return jax.lax.cond(column_valid, true_fn2, lambda env: env, env)
 

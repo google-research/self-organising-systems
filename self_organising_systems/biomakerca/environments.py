@@ -24,6 +24,7 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from functools import partial
 
+import jax
 from jax import jit
 from jax import numpy as jp
 
@@ -474,6 +475,67 @@ def add_agent_to_env(env, x, y, init_nutrients, aid, init_spec):
       env.state_grid.at[x, y, EN_ST:EN_ST+2].set(init_nutrients),
       env.agent_id_grid.at[x, y].set(aid))
 
+
+def place_seed(env: Environment, col, config: EnvConfig,
+               row_optional=None, aid=0,
+               custom_agent_init_nutrient=None):
+  """Place a seed in an environment.
+  
+  Arguments:
+    env: the environment to modify.
+    col: the target column where to place the vertical seed.
+    config: EnvConfig necessary for populating the env.
+    row_optional: The optional specified row (positioned where the 'leaf' would
+      usually be). If not specified, it will be inferred with extra computation.
+    aid: the agent id of the new seed.
+    custom_agent_init_nutrient: the value of nutrients for *each* cell. If not
+      specified, a default value that tends to work well will be used. The
+      default value is intended to be used when manually placing seeds. Use a
+      custom value for when reproduction happens.
+  """
+  type_grid = env.type_grid
+  etd = config.etd
+  if row_optional is None:
+    # find the row yourself. This code is somewhat redundant with
+    # env_logic.find_fertile_soil.
+    # create a mask that checks whether 'you are earth and above is air'.
+    # the highest has index 0 (it is inverted).
+    # the index starts from 1 (not 0) since the first row can never be fine.
+    mask = ((type_grid[1:, col] == etd.types.EARTH) &
+            (type_grid[:-1, col] == etd.types.AIR))
+    # only get the highest value, if it exists.
+    # note that these indexes now would return the position of the 'high-end' of 
+    # the seed. That is, the idx is where the top cell (leaf) would be, and idx+1 
+    # would be where the bottom (root) cell would be.
+    row = (mask * jp.arange(mask.shape[0]+1, 1, -1)).argmax(axis=0)
+    # note that we don't check if there is a valid row at all here.
+    # for that, use the more expensive env_logic.find_fertile_soil or write
+    # your own variant.
+  else:
+    row = row_optional
+  if custom_agent_init_nutrient is None:
+    agent_init_nutrient = (config.dissipation_per_step * 4 +
+                           config.specialize_cost)
+  else:
+    agent_init_nutrient = custom_agent_init_nutrient
+
+  # this needs to use dynamic_update_slice because it needs to be jittable.
+  type_grid = jax.lax.dynamic_update_slice(
+      type_grid,
+      jp.full((2, 1), etd.types.AGENT_UNSPECIALIZED, dtype=jp.uint32),
+      (row, col))
+  new_states = jax.lax.dynamic_update_slice(
+      jp.zeros([2, 1, config.env_state_size]),
+      jp.repeat((agent_init_nutrient)[None, None,:], 2, axis=0),
+      (0, 0, EN_ST))
+  state_grid = jax.lax.dynamic_update_slice(
+      env.state_grid, new_states, (row, col, 0))
+  agent_id_grid = jax.lax.dynamic_update_slice(
+      env.agent_id_grid, jp.repeat(aid, 2)[:, None].astype(jp.uint32),
+      (row, col))
+  return Environment(type_grid, state_grid, agent_id_grid)
+
+
 def set_nutrients_to_materials(env, etd, earth_nut_val=None, air_nut_val=None):
   """Set the nutrient values of all EARTH and AIR cells to the respective vals.
   """
@@ -500,7 +562,7 @@ def create_enviroment_filled_with_type(config, h, w, env_type):
 
 
 def create_default_environment(config, h, w, with_earth=True,
-                               init_nutrient_perc=0.1):
+                               init_nutrient_perc=0.2):
   """Create a simple default environment.
   It is filled with air, with immovable in the bottom and sun on top.
   If with_earth is True, it also contains earth covering the bottom half of the 
@@ -585,19 +647,9 @@ def get_env_and_config(
         max_lifetime=10000,
         struct_integrity_cap=200,
         )
-    env = create_default_environment(config, h, w, init_nutrient_perc=0.2)
-
-    t_aid = 0
-    half_h = h // 2
-    half_w = w // 2
-
-    agent_init_nutrients = (config.dissipation_per_step * 4 +
-                            config.specialize_cost)
+    env = create_default_environment(config, h, w)
     # add a seed at the center.
-    env = add_agent_to_env(env, -half_h, half_w, agent_init_nutrients, t_aid,
-                           etd.types.AGENT_UNSPECIALIZED)
-    env = add_agent_to_env(env, -half_h-1, half_w, agent_init_nutrients, t_aid,
-                           etd.types.AGENT_UNSPECIALIZED)
+    env = place_seed(env, w // 2, config)
 
     return EnvAndConfig(env, config)
   
@@ -616,19 +668,9 @@ def get_env_and_config(
         max_lifetime=300,
         struct_integrity_cap=200,
         )
-    env = create_default_environment(config, h, w, init_nutrient_perc=0.2)
-
-    t_aid = 0
-    half_h = h // 2
-    half_w = w // 2
-
-    agent_init_nutrients = (config.dissipation_per_step * 4 +
-                            config.specialize_cost)
+    env = create_default_environment(config, h, w)
     # add a seed at the center.
-    env = add_agent_to_env(env, -half_h, half_w, agent_init_nutrients, t_aid,
-                           etd.types.AGENT_UNSPECIALIZED)
-    env = add_agent_to_env(env, -half_h-1, half_w, agent_init_nutrients, t_aid,
-                           etd.types.AGENT_UNSPECIALIZED)
+    env = place_seed(env, w // 2, config)
 
     return EnvAndConfig(env, config)
   
@@ -647,19 +689,9 @@ def get_env_and_config(
         max_lifetime=int(1e8),  # essentially, they don't age.
         struct_integrity_cap=300,
         )
-    env = create_default_environment(config, h, w, init_nutrient_perc=0.2)
-
-    t_aid = 0
-    half_h = h // 2
-    half_w = w // 2
-
-    agent_init_nutrients = (config.dissipation_per_step * 4 +
-                            config.specialize_cost)
+    env = create_default_environment(config, h, w)
     # add a seed at the center.
-    env = add_agent_to_env(env, -half_h, half_w, agent_init_nutrients, t_aid,
-                           etd.types.AGENT_UNSPECIALIZED)
-    env = add_agent_to_env(env, -half_h-1, half_w, agent_init_nutrients, t_aid,
-                           etd.types.AGENT_UNSPECIALIZED)
+    env = place_seed(env, w // 2, config)
 
     return EnvAndConfig(env, config)
   
@@ -681,19 +713,9 @@ def get_env_and_config(
         max_lifetime=10000,
         struct_integrity_cap=400,
         )
-    env = create_default_environment(config, h, w, init_nutrient_perc=0.2)
-
-    t_aid = 0
-    half_h = h // 2
-    half_w = w // 2
-
-    agent_init_nutrients = (config.dissipation_per_step * 4 +
-                            config.specialize_cost)
+    env = create_default_environment(config, h, w)
     # add a seed at the center.
-    env = add_agent_to_env(env, -half_h, half_w, agent_init_nutrients, t_aid,
-                           etd.types.AGENT_UNSPECIALIZED)
-    env = add_agent_to_env(env, -half_h-1, half_w, agent_init_nutrients, t_aid,
-                           etd.types.AGENT_UNSPECIALIZED)
+    env = place_seed(env, w // 2, config)
     
     # now the kicker: remove nutrients from top and bottom.
     env = update_env_type_grid(
