@@ -585,6 +585,24 @@ def create_default_environment(config, h, w, with_earth=True,
   return env
 
 
+def infer_width(h, width_type):
+  """Infer the width of the environment.
+
+  It accepts width_type of type int or string.
+  """
+  if isinstance(width_type, int):
+    return width_type
+  if width_type == "wide":
+    return 4 * h
+  if width_type == "landscape":
+    return int(1.778 * h)
+  if width_type == "square":
+    return h
+  if width_type == "petri":
+    return h // 2
+  raise ValueError("invalid width_type", width_type)
+
+
 def get_env_and_config(
     ec_id: str, width_type="wide", h=72, etd: EnvTypeDef = DefaultTypeDef()
     ) -> EnvAndConfig:
@@ -618,19 +636,7 @@ def get_env_and_config(
     integrity cap is increased to account for that. Due to this setup, it is 
     recommended to set 'landscape' width for this.
   """
-  
-  def infer_width(h, width_type):
-    if isinstance(width_type, int):
-      return width_type
-    if width_type == "wide":
-      return 4 * h
-    if width_type == "landscape":
-      return int(1.778 * h)
-    if width_type == "square":
-      return h
-    if width_type == "petri":
-      return h // 2
-    raise ValueError("invalid width_type", width_type)
+
   
   if ec_id == "persistence":
     w = infer_width(h, width_type)

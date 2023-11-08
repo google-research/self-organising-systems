@@ -13,12 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import cv2
 import io
 
 from IPython.display import Image
 import matplotlib.pyplot as plt
 import numpy as np
 import PIL
+
 
 from self_organising_systems.biomakerca.custom_ipython_display import display
 
@@ -80,4 +82,23 @@ def grab_plot(close=True):
   img = np.uint8(255*(1.0-a) + img[...,:3] * a)  # alpha
   if close:
     plt.close()
+  return img
+
+
+def add_text_to_img(img, text, origin, thickness=2, color="white",
+                    fontScale = 1.0):
+  """Add text to a numpy-compatible image.
+
+  Must specify an origin. Empirically, I observed that using zoom first and then
+  add_text_to_img with the proper thickness works best.
+  """
+  if color == "white":
+    color = (1, 1, 1)
+  elif color == "black":
+    color = (0, 0, 0)
+  font = cv2.FONT_HERSHEY_SIMPLEX
+
+  img = np.array(img)
+  img = cv2.putText(
+      img, text, origin, font, fontScale, color, thickness, cv2.LINE_AA)
   return img

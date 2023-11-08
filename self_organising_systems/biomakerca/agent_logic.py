@@ -724,3 +724,101 @@ class BasicAgentLogic(AgentLogic):
     # The switch checks whether the output logit is >0.
     mask_logit = (norm_self_en > params).all().astype(jp.float32)
     return ReproduceInterface(mask_logit)
+
+
+def adapt_dna_to_different_basic_logic(
+    dna, old_logic: BasicAgentLogic, new_logic: BasicAgentLogic):
+  """Adapt dna to work with a new BasicAgentLogic.
+
+  You must give the old BasicAgentLogic as well.
+
+  Most adapatations are not implemented, because I didn't need them.
+  Feel free to extend this function and send a pull request.
+  """
+  old_config = old_logic.config
+  new_config = new_logic.config
+  assert (not old_logic.minimal_net and not new_logic.minimal_net
+          ), "Haven't implemented other variations yet."
+
+  # nomenclature:
+  # - T: dim for all env types
+  T = len(old_config.etd.types)
+  # - M: dim for materials only
+  M = len(old_config.etd.materials_list)
+  # - S: dim for agent spec
+  S = T - M
+  # - E: dim for env_state_size
+  # E = old_config.env_state_size
+  # - A: dim for agent_state_size
+  A = old_config.agent_state_size
+
+  Tnew = len(new_config.etd.types)
+  Mnew = len(new_config.etd.materials_list)
+  Snew = Tnew - Mnew
+  # Enew = new_config.env_state_size
+  Anew = new_config.agent_state_size
+
+  assert Mnew > M, "Haven't implemented a reduction yet."
+  assert Snew == S, "Haven't implemented this yet."
+  assert Anew == A, "Haven't implemented this yet."
+
+  # Add new conenctions for the materials.
+  dM = Mnew - M
+
+  par_program, excl_program, repr_program = old_logic.split_params_f(dna)
+  # PARALLEL PROGRAM
+  # parallel program is further split
+  dsm_params, nsl_params, denm_params = old_logic.split_par_params_f(
+      par_program)
+  dsm_params = old_logic._dsm_format_params_fn(dsm_params)
+  nsl_params = old_logic._nsl_format_params_fn(nsl_params)
+  denm_params = old_logic._denm_format_params_fn(denm_params)
+
+  #dsm
+  (dw0, db0, dw1, db1) = dsm_params
+  # dw0 [S,T+E,32] -> [S,M+dM+S,32]
+  new_dw0 = jp.concatenate([dw0[:,:M], jp.zeros([S,dM,32]), dw0[:,M:]], 1)
+  new_db0 = db0
+  new_dw1 = dw1
+  new_db1 = db1
+  new_dsm_params = (new_dw0, new_db0, new_dw1, new_db1)
+
+  # nsl
+  (w, b), (dw0, db0, dw1, db1) = nsl_params
+  new_b = b
+  # w [S,T,S] -> [S,M+dM+S,S]
+  new_w = jp.concatenate([w[:,:M], jp.zeros([S,dM,S]), w[:,M:]], 1)
+  # dw0 [S,T+E,32] -> [S,M+dM+S,32]
+  new_dw0 = jp.concatenate([dw0[:,:M], jp.zeros([S,dM,32]), dw0[:,M:]], 1)
+  new_db0 = db0
+  new_dw1 = dw1
+  new_db1 = db1
+  new_nsl_params = (new_w, new_b), (new_dw0, new_db0, new_dw1, new_db1)
+
+  # denm
+  # unaffected: mostly has to do with specialization type.
+  new_denm_params = denm_params
+
+  new_par_program_tree = (new_dsm_params, new_nsl_params, new_denm_params)
+
+  # EXCLUSIVE PROGRAM
+  (unchanged_pars,
+   (dw0, db0, dw1, db1)) = old_logic._excl_format_params_fn(excl_program)
+  # dw0 [S,T+3*E,32] -> [S,M+dM+S+3*E,32]
+  new_dw0 = jp.concatenate([dw0[:,:M], jp.zeros([S,dM,32]), dw0[:,M:]], 1)
+  new_db0 = db0
+  new_dw1 = dw1
+  new_db1 = db1
+  new_excl_program_tree = (unchanged_pars, (new_dw0, new_db0, new_dw1, new_db1))
+
+  # REPRODUCE PARAMS
+  # unchanged
+  new_repr_params_tree = repr_program
+
+  updated_dna_tree = (
+      new_par_program_tree, new_excl_program_tree, new_repr_params_tree)
+
+  return jax.tree_util.tree_reduce(
+      lambda a, b: jp.concatenate([a, b], 0),
+      jax.tree_util.tree_map(
+          lambda x: x.flatten(), updated_dna_tree))
