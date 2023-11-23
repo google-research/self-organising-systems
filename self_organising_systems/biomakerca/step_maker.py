@@ -30,6 +30,7 @@ from self_organising_systems.biomakerca.cells_logic import air_cell_op
 from self_organising_systems.biomakerca.cells_logic import earth_cell_op
 from self_organising_systems.biomakerca.env_logic import AgentProgramType
 from self_organising_systems.biomakerca.env_logic import ExclusiveOp
+from self_organising_systems.biomakerca.env_logic import balance_soil
 from self_organising_systems.biomakerca.env_logic import env_increase_age
 from self_organising_systems.biomakerca.env_logic import env_perform_exclusive_update
 from self_organising_systems.biomakerca.env_logic import env_perform_reproduce_update
@@ -111,6 +112,10 @@ def step_env(
     agent_params = programs
   par_programs, excl_programs, repr_programs = agent_logic.split_params_f(
       agent_params)
+
+  if config.soil_unbalance_limit > 0:
+    ku, key = jr.split(key)
+    env = balance_soil(ku, env, config)
 
   # do a few steps of structural integrity:
   env = process_structural_integrity_n_times(env, config, 5)

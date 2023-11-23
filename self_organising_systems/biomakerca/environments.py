@@ -423,6 +423,15 @@ class EnvConfig:
       increasing number of materials until they would lose 100% of them at 
       max_lifetime. You can essentially disable this feature by setting an 
       enormous value for this attribute.
+    soil_unbalance_limit: if this value is > 0, the environment will try to
+      balance the earth/air proportion for each vertical slice as described in
+      env_logic.balance_soil. This is useful for making sure that the 
+      environment doesn't degenerate into losing either all earth or air.
+      Defaults to 0 to not break older experiments, but the recommended value is
+      1/3.
+      Note that we could add one more parameter here: the update probability.
+      But since it is almost entirely irrelevant, we keep a default value of
+      0.05. Let us know if there are reasons to vary this.
   """
   
   def __init__(self,
@@ -439,7 +448,8 @@ class EnvConfig:
                n_reproduce_per_step=2,
                nutrient_cap=DEFAULT_NUTRIENT_CAP,
                material_nutrient_cap=DEFAULT_MATERIAL_NUTRIENT_CAP,
-               max_lifetime=int(1e6)):
+               max_lifetime=int(1e6),
+               soil_unbalance_limit=0):
     self.agent_state_size = agent_state_size
     self.etd = etd
     self.env_state_size = 4 + self.agent_state_size
@@ -455,6 +465,7 @@ class EnvConfig:
     self.nutrient_cap = nutrient_cap
     self.material_nutrient_cap = material_nutrient_cap
     self.max_lifetime = max_lifetime
+    self.soil_unbalance_limit = soil_unbalance_limit
 
   def __str__(self):
     return stringify_class(self)
@@ -758,15 +769,48 @@ def slice_environment_from_center(env, new_w):
 
 ### Visualization of environments
 
-@partial(jit, static_argnames=["config"])
-def grab_image_from_env(env, config):
+def hue_to_rgb(p, q, t):
+  t = jp.mod(t, 1.0)
+
+  # exclusive conditions
+  t_lt_1d6 = (t < 1/6)
+  done = t_lt_1d6
+  t_lt_1d2 = jp.logical_and(jp.logical_not(done), (t < 1/2))
+  done = jp.logical_or(done, t_lt_1d2)
+  t_lt_2d3 = jp.logical_and(jp.logical_not(done), (t < 2/3))
+  t_else = jp.logical_and(jp.logical_not(done), jp.logical_not(t_lt_2d3))
+  return (t_lt_1d6 * (p+(q-p)*6*t) +
+          t_lt_1d2 * q +
+          t_lt_2d3 * (p + (q - p) * (2/3 - t) * 6) +
+          t_else * p)
+
+
+def hsl_to_rgb(h,s,l):
+  """Return an array containing the converted RGB colors, in range [0,1].
+  Assumes h,s,l are in the range [0,1].
+  """
+  l_lt_05 = jp.array(l < 0.5).astype(jp.float32)
+  q = l_lt_05 * l * (1 + s) + (1. - l_lt_05) * (l + s - l * s)
+  print(q)
+  p = 2 * l - q
+  print(p)
+  return jp.stack(
+      [hue_to_rgb(p,q,h+1/3), hue_to_rgb(p,q,h), hue_to_rgb(p,q,h-1/3)], -1)
+
+
+@partial(jit, static_argnames=["config", "color_by_id"])
+def grab_image_from_env(env, config, color_by_id=True, id_color_intensity=0.15):
   """Create a visualization of the environment.
-  
+
   Resulting values are floats ranging from [0,1].
+
+  If color_by_id is True, we blend the agent cell colors with unique per id
+  colors with a mix of id_color_intensity.
   """
   etd = config.etd
   def map_cell(cell_type, state):
     env_c = etd.type_color_map[cell_type]
+
     # EARTH and AIR colors degrade by how little nutrients they have.
     is_earth_f = (cell_type == etd.types.EARTH).astype(jp.float32)
     is_air_f = (cell_type == etd.types.AIR).astype(jp.float32)
@@ -777,4 +821,30 @@ def grab_image_from_env(env, config):
         state[EN_ST+AIR_NUTRIENT_RPOS]/
         config.material_nutrient_cap[AIR_NUTRIENT_RPOS])*0.7)
     return env_c
-  return vmap2(map_cell)(env.type_grid, env.state_grid)
+  env_c_grid = vmap2(map_cell)(env.type_grid, env.state_grid)
+
+  if color_by_id:
+    def add_id_colors(env_c, cell_type, agent_id):
+      is_agent_f = etd.is_agent_fn(cell_type).astype(jp.float32)
+      # Agents are slightly colored towards a random hue based on the agent id.
+      # Just using two prime numbers for breakign cyclical coloring.
+      agent_hue = jp.mod(agent_id * 41 / 137, 1.)
+      agent_c = hsl_to_rgb(agent_hue, 0.5, 0.5)
+      env_c = env_c * (1. - is_agent_f) + is_agent_f * (
+          env_c * (1. - id_color_intensity) + agent_c * id_color_intensity)
+      return env_c
+    env_c_grid = vmap2(add_id_colors)(
+        env_c_grid, env.type_grid, env.agent_id_grid)
+
+  # Then degrade colors by how old agents are.
+  def decay_by_age(env_c, cell_type, state):
+    # Agents colors degrade by how old they are.
+    is_agent_f = etd.is_agent_fn(cell_type).astype(jp.float32)
+    age_perc = state[AGE_IDX] / config.max_lifetime
+    env_c = env_c * (1. - is_agent_f) + env_c * is_agent_f * (
+        0.3 + (1 - age_perc) * 0.7)
+    return env_c
+  env_c_grid = vmap2(decay_by_age)(
+      env_c_grid, env.type_grid, env.state_grid)
+
+  return env_c_grid

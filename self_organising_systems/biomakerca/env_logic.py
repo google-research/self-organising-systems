@@ -1429,3 +1429,85 @@ def env_increase_age(env: Environment, etd: EnvTypeDef) -> Environment:
   new_state_grid = env.state_grid.at[:,:, evm.AGE_IDX].set(
       env.state_grid[:,:, evm.AGE_IDX] + is_aging_m)
   return evm.update_env_state_grid(env, new_state_grid)
+
+### Balancing the soil
+
+def balance_soil(key: KeyType, env: Environment, config: EnvConfig):
+  """Balance the earth/air proportion for each vertical slice.
+
+  If any vertical slice has a proportion of Earth to air past the
+  config.soil_unbalance_limit (a percentage of the maximum height), then we find
+  the boundary of (earth|immovable) and (air|sun), and replace one of them with:
+  1) air, for high altitudes, or 2) earth, for low altitudes.
+  This is approximated by detecting this boundary and checking its altitude.
+  That is, we do not actually count the amounts of earth and air cells.
+
+  upd_perc is used to make this effect gradual.
+
+  Note that if agent cells are at the boundary, nothing happens. So, if plants
+  actually survive past the boundary, as long as they don't die, soil is not
+  balanced.
+  """
+  type_grid = env.type_grid
+  etd = config.etd
+
+  h = type_grid.shape[0]
+  unbalance_limit = config.soil_unbalance_limit
+  # This is currently hard coded. Feel free to change this if needed and
+  # consider sending a pull request.
+  upd_perc = 0.05
+  earth_min_r = jp.array(h * unbalance_limit, dtype=jp.int32)
+  air_max_r = jp.array(h * (1 -unbalance_limit), dtype=jp.int32)
+
+  # create a mask that checks: 'you are earth|immovable and above is air|sun'.
+  # the highest has index 0 (it is inverted).
+  # the index starts from 1 (not 0) since the first row can never be fine.
+  mask = (((type_grid[1:] == etd.types.EARTH) |
+           (type_grid[1:] == etd.types.IMMOVABLE)) &
+          ((type_grid[:-1] == etd.types.AIR) |
+           (type_grid[:-1] == etd.types.SUN)))
+  # only get the highest value, if it exists.
+  # note that these indexes now would return the position of the 'high-end' of
+  # the seed. That is, the idx is where the top cell (leaf) would be, and idx+1
+  # would be where the bottom (root) cell would be.
+  best_idx_per_column = (mask * jp.arange(mask.shape[0]+1, 1, -1)[:, None]
+                         ).argmax(axis=0)
+  # We need to make sure that it is a valid position, otherwise a value of 0
+  # would be confused.
+  column_m = mask[best_idx_per_column, jp.arange(mask.shape[1])]
+
+  # if best idx is low, create air where earth would be.
+  target_for_air = (best_idx_per_column+1)
+  ku, key = jr.split(key)
+  make_air_mask = (column_m & (target_for_air < earth_min_r) &
+                   (jr.uniform(ku, target_for_air.shape) < upd_perc))
+
+  column_idx = jp.arange(type_grid.shape[1])
+  type_grid = type_grid.at[target_for_air, column_idx].set(
+      etd.types.AIR * make_air_mask +
+      type_grid[target_for_air, column_idx] * (1 - make_air_mask))
+  env = evm.update_env_type_grid(env, type_grid)
+  # We need to reset the state too.
+  state_grid = env.state_grid
+  old_state_slice = state_grid[target_for_air, column_idx]
+  state_grid = state_grid.at[target_for_air, column_idx].set(
+      jp.zeros_like(old_state_slice) * make_air_mask[..., None] +
+      old_state_slice * (1 - make_air_mask[..., None]))
+  env = evm.update_env_state_grid(env, state_grid)
+
+  # if best idx is high, create earth where air would be.
+  ku, key = jr.split(key)
+  make_earth_mask = (column_m & (best_idx_per_column > air_max_r) &
+                     (jr.uniform(ku, target_for_air.shape) < upd_perc))
+  type_grid = type_grid.at[best_idx_per_column, column_idx].set(
+      etd.types.EARTH * make_earth_mask +
+      type_grid[best_idx_per_column, column_idx] * (1 - make_earth_mask))
+  env = evm.update_env_type_grid(env, type_grid)
+  # We need to reset the state too.
+  old_state_slice = state_grid[best_idx_per_column, column_idx]
+  state_grid = state_grid.at[best_idx_per_column, column_idx].set(
+      jp.zeros_like(old_state_slice) * make_earth_mask[..., None] +
+      old_state_slice * (1 - make_earth_mask[..., None]))
+  env = evm.update_env_state_grid(env, state_grid)
+
+  return env
