@@ -247,9 +247,12 @@ DEFAULT_AGENT_TYPES = [
     "AGENT_ROOT",
     # Leaf: Capable of absorbing air nutrients.
     "AGENT_LEAF",
-    # Flower: Capable of performing a reproduce operation. They *tend* to
-    #   consume more nutrients.
+    # Flower: Capable of performing an asexual reproduce operation. They *tend*
+    # to consume more nutrients.
     "AGENT_FLOWER",
+    # Sexual Flower: Capable of performing a sexual reproduce operation. They
+    # *tend* to consume more nutrients.
+    "AGENT_FLOWER_SEXUAL",
 ]
 
 # indexed by the type, it tells how much structure decays.
@@ -265,16 +268,18 @@ DEFAULT_STRUCTURE_DECAY_MATS_DICT = {
     "AGENT_ROOT": 5,
     "AGENT_LEAF": 5,
     "AGENT_FLOWER": 5,
+    "AGENT_FLOWER_SEXUAL": 5,
 }
 
 # A modifier of the dissipation based on the agent specialization.
-# the first element is for the earth nutrients, the second element is for the 
+# the first element is for the earth nutrients, the second element is for the
 # air nutrients.
 DEFAULT_DISSIPATION_RATE_PER_SPEC_DICT = {
     "AGENT_UNSPECIALIZED": jp.array([0.5, 0.5]),
     "AGENT_ROOT": jp.array([1.0, 1.0]),
     "AGENT_LEAF": jp.array([1.0, 1.0]),
     "AGENT_FLOWER": jp.array([1.2, 1.2]),
+    "AGENT_FLOWER_SEXUAL": jp.array([1.2, 1.2]),
 }
 
 # Colors for visualising the default types.
@@ -289,6 +294,7 @@ DEFAULT_TYPE_COLOR_DICT = {
     "AGENT_ROOT": jp.array([0.52, 0.39, 0.14]),  # RGB: 133,99,36
     "AGENT_LEAF": jp.array([0.16, 0.49, 0.10]),  # RGB: 41,125,26
     "AGENT_FLOWER": jp.array([1., 0.42, 0.71]),  # RGB: 255,107,181
+    "AGENT_FLOWER_SEXUAL": jp.array([1., 0.749, 0.]),  # RGB: 255,191,0
 }
 
 def convert_string_dict_to_type_array(d, types):
@@ -339,6 +345,7 @@ class DefaultTypeDef(EnvTypeDef):
     types = self.types
     # setup material specific properties. If you are subclassing this, consider
     # changing these values manually.
+    #TODO make these uint32
     self.intangible_mats = jp.array([types.VOID, types.AIR], dtype=jp.int32)
     self.gravity_mats = jp.concatenate([
         jp.array([types.EARTH], dtype=jp.int32), self.agent_types], 0)
@@ -411,11 +418,18 @@ class EnvConfig:
       seed can be placed.
     reproduce_max_dist: the maximum distance from a reproducing flower where a
       seed can be placed.
-    n_reproduce_per_step: how many reproduce ops can be selected per step to be
-      executed. In effect, this means that flowers may not execute reproduce ops
-      as soon as they desire, but they may wait, depending on how many other 
-      flowers are asking the same in the environment. See that competition over
-      a scarse external resource (bees, for instance).
+    n_reproduce_per_step: how many asexual reproduce ops can be selected per 
+      step to be executed. In effect, this means that flowers may not execute 
+      reproduce ops as soon as they desire, but they may wait, depending on how
+      many other flowers are asking the same in the environment. See that 
+      competition over a scarse external resource (bees, for instance).
+    n_sexual_reproduce_per_step: how many sexual reproduce ops can be selected 
+      per step to be executed. Note that since 2 ops are needed per each sexual
+      reproduction, we will perform n_sexual_reproduce_per_step by getting twice
+      as many reproduce ops. In effect, this means that flowers may not execute
+      reproduce ops as soon as they desire, but they may wait, depending on how 
+      many other flowers are asking the same in the environment. See that 
+      competition over a scarse external resource (bees, for instance).
     nutrient_cap: maximum value of nutrients for agents.
     material_nutrient_cap: maximum value of nutrients for other materials.
     max_lifetime: the maximum lifetime of an organism. Agents age at every step.
@@ -446,6 +460,7 @@ class EnvConfig:
                reproduce_min_dist=5,
                reproduce_max_dist=15,
                n_reproduce_per_step=2,
+               n_sexual_reproduce_per_step=2,
                nutrient_cap=DEFAULT_NUTRIENT_CAP,
                material_nutrient_cap=DEFAULT_MATERIAL_NUTRIENT_CAP,
                max_lifetime=int(1e6),
@@ -462,6 +477,7 @@ class EnvConfig:
     self.reproduce_min_dist = reproduce_min_dist
     self.reproduce_max_dist = reproduce_max_dist
     self.n_reproduce_per_step = n_reproduce_per_step
+    self.n_sexual_reproduce_per_step = n_sexual_reproduce_per_step
     self.nutrient_cap = nutrient_cap
     self.material_nutrient_cap = material_nutrient_cap
     self.max_lifetime = max_lifetime
@@ -595,6 +611,21 @@ def create_default_environment(config, h, w, with_earth=True,
       init_nutrient_perc * config.material_nutrient_cap[AIR_NUTRIENT_RPOS])
   return env
 
+
+def create_multiseed_environment(h, w, config, with_earth=True,
+                                 init_nutrient_perc=0.2, place_every=10):
+  """Create a default environment that contains several different seeds.
+
+  Each seed has a different agent id.
+  """
+  env = create_default_environment(config, h, w, with_earth, init_nutrient_perc)
+
+  aid = 0
+  for i in range(1, w//place_every):
+    env = place_seed(env, place_every*i, config, aid=aid)
+    aid += 1
+
+  return env
 
 def infer_width(h, width_type):
   """Infer the width of the environment.
@@ -791,9 +822,7 @@ def hsl_to_rgb(h,s,l):
   """
   l_lt_05 = jp.array(l < 0.5).astype(jp.float32)
   q = l_lt_05 * l * (1 + s) + (1. - l_lt_05) * (l + s - l * s)
-  print(q)
   p = 2 * l - q
-  print(p)
   return jp.stack(
       [hue_to_rgb(p,q,h+1/3), hue_to_rgb(p,q,h), hue_to_rgb(p,q,h-1/3)], -1)
 

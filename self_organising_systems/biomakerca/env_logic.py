@@ -30,9 +30,10 @@ limitations under the License.
 from collections import namedtuple
 from functools import partial
 from typing import Callable, Iterable
+import copy
 
 import flax
-from jax import vmap
+from jax import vmap, jit
 import jax.numpy as jp
 import jax.random as jr
 import jax.scipy
@@ -152,20 +153,20 @@ if "ParallelInterface" not in globals():
 
 # ReproduceOp.
 # flowers can create ReproduceInterfaces that are converted to ReproduceOps.
-# Nutrients from the flower get converted into stored_en and we record the 
+# Nutrients from the flower get converted into stored_en and we record the
 # original position and agent id. A new seed is then tentatively created
 # following the logic of the environment decided upon.
 if "ReproduceOp" not in globals():
-  ReproduceOp = namedtuple("ReproduceOp", "mask pos stored_en aid")
+  ReproduceOp = namedtuple("ReproduceOp", "mask pos stored_en aid is_sexual")
 
 # Helpers for making ReproduceOps.
 EMPTY_REPRODUCE_OP = ReproduceOp(
     jp.array(0.), jp.zeros([2], dtype=jp.int32), jp.zeros([2]),
-    jp.array(0, dtype=jp.uint32))
+    jp.array(0, dtype=jp.uint32), jp.array(0, dtype=jp.int32))
 
 ### ReproduceInterface
 # Interface for reproduction of agents.
-# If a flower triggers reproduction, all of its energy is converted for the 
+# If a flower triggers reproduction, all of its energy is converted for the
 # new seed. However, reproduction has a cost and it may fail.
 # Arguments:
 #   mask_logit: whether or not to perform reproduction. True if > 0.
@@ -180,7 +181,7 @@ if "ReproduceInterface" not in globals():
 # No matter the kind of cell, be it a material or an agent, they can only 
 # perceive a limited amount of data. This is the 3x3 neighborhood of the 
 # environment. The difference from Environment is that each cell has 9 values
-# per grid. That is, neigh_type will be [w,h,9] as opposed to type_grid: [w,h].
+# per grid. That is, neigh_type will be [h,w,9] as opposed to type_grid: [h,w].
 # Also note that perceived data is intended to be passed using vmap2 so that
 # each cell only perceives their neighbors, that is, their input is of size:
 # neigh_type:[9], neigh_state:[9,env_state_size], neigh_id:[9].
@@ -191,7 +192,7 @@ if "PerceivedData" not in globals():
 
 
 def perceive_neighbors(env: Environment, etd: EnvTypeDef) -> PerceivedData:
-  """Return PerceivedData (gridwise, with leading axes of size [w,h]).
+  """Return PerceivedData (gridwise, with leading axes of size [h,w]).
   
   Cells can only perceive their neighbors. Of the neighbors, they can perceive 
   all: type, state and agent_id.
@@ -211,7 +212,7 @@ def perceive_neighbors(env: Environment, etd: EnvTypeDef) -> PerceivedData:
   neigh_state = jax.lax.conv_general_dilated_patches(
       env.state_grid[None,:],
       (3, 3), (1, 1), "SAME", dimension_numbers=("NHWC", "OIHW", "NHWC"))[0]
-  # We want to have [w,h,9,c] so that the indexing is intuitive and consistent
+  # We want to have [h,w,9,c] so that the indexing is intuitive and consistent
   # for all neigh vectors.
   env_state_size = env.state_grid.shape[-1]
   neigh_state = neigh_state.reshape(
@@ -229,21 +230,69 @@ def perceive_neighbors(env: Environment, etd: EnvTypeDef) -> PerceivedData:
 # These functions make ExclusiveOps and execute them into the environment.
 
 def vectorize_cell_exclusive_f(
-    cell_f: Callable[[KeyType, PerceivedData], ExclusiveOp], w, h):
+    cell_f: Callable[[KeyType, PerceivedData], ExclusiveOp], h, w):
   """Vectorizes a cell's exclusive_f to work from 0d to 2d."""
-  return lambda key, perc: vmap2(cell_f)(split_2d(key, w, h), perc)
+  return lambda key, perc: vmap2(cell_f)(split_2d(key, h, w), perc)
 
 
 def vectorize_agent_cell_f(
     cell_f: Callable[[KeyType, PerceivedData, AgentProgramType],
-                     ExclusiveOp|ParallelOp], w, h):
+                     ExclusiveOp|ParallelOp], h, w):
   """Vectorizes an agent cell_f to work from 0d to 2d.
   This works for both ExclusiveOp and ParallelOp.
   Note that the cell_f *requires* to have the proper argument name 'programs',
   so this is an informal interface.
   """
   return lambda key, perc, progs: vmap2(partial(cell_f, programs=progs))(
-      split_2d(key, w, h), perc)
+      split_2d(key, h, w), perc)
+
+
+def compute_sparse_agent_cell_f(
+    key: KeyType,
+    cell_f: (Callable[[KeyType, PerceivedData, AgentProgramType],
+                     ExclusiveOp|ParallelOp] | 
+             Callable[[
+                 KeyType, PerceivedData, CellPositionType, AgentProgramType],
+                      ReproduceOp]),
+    perc: PerceivedData,
+    env_type_grid, programs: AgentProgramType, etd: EnvTypeDef,
+    n_sparse_max: int,
+    b_pos=None):
+  """Compute a sparse agent cell_f.
+
+  This works for ExclusiveOp, ParallelOp and ReproduceOp.
+  Note that the cell_f *requires* to have the proper argument name 'programs',
+  so this is an informal interface.
+
+  if it is used for a ReproduceOp, b_pos needs to be set, being a flat list of 
+  (y,x) positions.
+  """
+  # get the args of alive cells.
+  # note that cell_f will not work by itself if the cell is not an agent.
+  is_agent_flat = etd.is_agent_fn(env_type_grid.flatten())
+  # leftmost are not agents, rightmost are agents.
+  sorted_agent_idx = jp.argsort(is_agent_flat)
+  sparse_idx = sorted_agent_idx[-n_sparse_max:]
+
+  # compute, sparsely, cell_f
+  v_part_cell_f = vmap(partial(cell_f, programs=programs))
+  v_keys = jr.split(key, n_sparse_max)
+  sparse_perc_flat = jax.tree_util.tree_map(
+      lambda x: x.reshape((-1,)+ x.shape[2:])[sparse_idx], perc)
+  if b_pos is None:
+    sparse_output_tree = v_part_cell_f(v_keys, sparse_perc_flat)
+  else:
+    # this is a reproduce op, and therefore requires pos too.
+    sparse_output_tree = v_part_cell_f(
+        v_keys, sparse_perc_flat, b_pos[sparse_idx])
+
+  # scatter the result.
+  # we also need to reshape so that it is [h, w, ...] shape.
+  return jax.tree_util.tree_map(
+      lambda x: jax.ops.segment_sum(
+          x, sparse_idx, num_segments=is_agent_flat.shape[0]).reshape(
+              env_type_grid.shape + x.shape[1:]),
+      sparse_output_tree)
 
 
 def make_material_exclusive_interface(
@@ -396,33 +445,43 @@ def execute_and_aggregate_exclusive_ops(
     excl_fs: Iterable[tuple[EnvTypeType,
                             Callable[[KeyType, PerceivedData], ExclusiveOp]]],
     agent_excl_f: Callable[[
-        KeyType, PerceivedData, AgentProgramType], ExclusiveInterface]
+        KeyType, PerceivedData, AgentProgramType], ExclusiveInterface],
+    n_sparse_max: int|None = None
     ) -> ExclusiveOp:
   """Execute all exclusive functions and aggregate them all into a single
   ExclusiveOp for each cell.
-  
+
   This function constructs sanitized interfaces for the input excl_fs and 
   agent_excl_f, making sure that no laws of physics are broken.
-  It also then executes these operation for each cell in the grid and then
-  aggregates the resulting ExclusiveOp for each cell.
+  if n_sparse_max is None, it then executes these operation for each cell in the
+  grid. If n_sparse_max is an integer, it instead performs a sparse computation
+  for agent operations, only for alive agent cells. The computation is capped,
+  so some agents may be skipped if the cap is too low. The agents being chosen 
+  in that case are NOT ensured to be random. Consider changing the code to allow
+  for a random subset of cells to be run if you want that behavior.
+  It then aggregates the resulting ExclusiveOp for each cell.
   Aggregation can be done because *only one function*, at most, will be allowed
   to output nonzero values for each cell.
   """
   etd = config.etd
   perc = perceive_neighbors(env, etd)
-  w, h = env.type_grid.shape
+  h, w = env.type_grid.shape
   v_excl_fs = [vectorize_cell_exclusive_f(
-      make_material_exclusive_interface(t, f, config), w, h) for (t, f)
+      make_material_exclusive_interface(t, f, config), h, w) for (t, f)
                in excl_fs]
-  v_agent_excl_f = vectorize_agent_cell_f(
-      make_agent_exclusive_interface(agent_excl_f, config), w, h)
 
-  k1, k2, key = jr.split(key, 3)
-  w, h = env.type_grid.shape
-  excl_ops = [f(k, perc) for k, f in 
-              zip(jr.split(k1, len(v_excl_fs)), v_excl_fs)] + [
-                  v_agent_excl_f(k2, perc, programs)
-              ]
+  agent_excl_intf_f = make_agent_exclusive_interface(agent_excl_f, config)
+  k1, key = jr.split(key)
+  if n_sparse_max is None:
+    v_agent_excl_f = vectorize_agent_cell_f(agent_excl_intf_f, h, w)
+    agent_excl_op = v_agent_excl_f(k1, perc, programs)
+  else:
+    agent_excl_op = compute_sparse_agent_cell_f(
+        k1, agent_excl_intf_f, perc, env.type_grid, programs, etd, n_sparse_max)
+
+  k1, key = jr.split(key)
+  excl_ops = [f(k, perc) for k, f in
+              zip(jr.split(k1, len(v_excl_fs)), v_excl_fs)] + [agent_excl_op]
   excl_op = tree_map_sum_ops(excl_ops)
   return excl_op
 
@@ -446,7 +505,7 @@ def env_exclusive_decision(
     key: KeyType, env: Environment, excl_op: ExclusiveOp):
   """Choose up to one excl_op for each cell and execute them, updating the env.
   """
-  w, h, chn = env.state_grid.shape
+  h, w, chn = env.state_grid.shape
 
   def extract_patches_that_target_cell(x):
     """Extract all ExclusiveOps subarray of neighbors that target each cell.
@@ -456,7 +515,7 @@ def env_exclusive_decision(
     ExclusiveOps that target a given cell, and return them, so that one of them
     can be chosen to be executed.
     """
-    # input is either (w,h,9) or (w,h,9,c)
+    # input is either (h,w,9) or (h,w,9,c)
     ndim = x.ndim
     x_shape = x.shape
     old_dtype = x.dtype
@@ -468,7 +527,7 @@ def env_exclusive_decision(
     neigh_state = jax.lax.conv_general_dilated_patches(
         x[None,:], (3, 3), (1, 1), "SAME",
         dimension_numbers=("NHWC", "OIHW", "NHWC"))[0]
-    # make it (w, h, k, 9)
+    # make it (h, w, k, 9)
     # where k is either 9 or 9*c
     neigh_state = neigh_state.reshape(
         neigh_state.shape[:-1] + (x.shape[-1], 9))
@@ -477,7 +536,7 @@ def env_exclusive_decision(
       neigh_state = neigh_state.reshape(
           neigh_state.shape[:-2] + x_shape[-2:] + (9,)).transpose(
               (0, 1, 2, 4, 3))
-    # now it's either (w,h,9,9) or (w,h,9,9,c).
+    # now it's either (h,w,9,9) or (h,w,9,9,c).
     # The leftmost '9' refers to the position of the cell's neighbors.
     # the rightmost '9' indicates the exclusive op slice of the neighbor, which
     # in turn targets 9 neighbors.
@@ -498,7 +557,7 @@ def env_exclusive_decision(
 
   # choose a random one from them.
   rnd_neigh_idx = vmap2(_cell_choose_random_action)(
-      split_2d(key, w, h), excl_op_neighs)
+      split_2d(key, h, w), excl_op_neighs)
   
   # Do so by zeroing out everything except the chosen update.
   action_mask = jax.nn.one_hot(rnd_neigh_idx, 9)
@@ -531,12 +590,12 @@ def env_exclusive_decision(
   )
   def map_to_actor(x):
     pad_x = jp.pad(x, ((1, 1), (1, 1), (0, 0)))
-    return jp.stack([jax.lax.dynamic_slice(pad_x, s, (w, h, 9))[:,:,n] for n, s
+    return jp.stack([jax.lax.dynamic_slice(pad_x, s, (h, w, 9))[:,:,n] for n, s
                      in enumerate(MAP_TO_ACTOR_SLICING)], 2)
 
   def map_to_actor_e(x):
     pad_x = jp.pad(x, ((1, 1), (1, 1), (0, 0), (0, 0)))
-    return jp.stack([jax.lax.dynamic_slice(pad_x, s+(0,), (w, h, 9, chn))[:,:,n]
+    return jp.stack([jax.lax.dynamic_slice(pad_x, s+(0,), (h, w, 9, chn))[:,:,n]
                      for n, s in enumerate(MAP_TO_ACTOR_SLICING)], 2)
 
   a_upd_mask = map_to_actor(a_upd_mask_from_t).sum(-1)
@@ -568,28 +627,33 @@ def env_perform_exclusive_update(
     excl_fs: Iterable[tuple[EnvTypeType,
                             Callable[[KeyType, PerceivedData], ExclusiveOp]]],
     agent_excl_f: Callable[[
-        KeyType, PerceivedData, AgentProgramType], ExclusiveInterface]
+        KeyType, PerceivedData, AgentProgramType], ExclusiveInterface],
+    n_sparse_max: int|None = None
     ) -> Environment:
   """Perform exclusive operations in the environment.
-  
+
   This is the function that should be used for high level step_env design.
-  
+
   Arguments:
     key: a jax random number generator.
     env: the input environment to be modified.
     programs: params of agents that govern their agent_excl_f. They should be
       one line for each agent_id allowed in the environment.
     config: EnvConfig describing the physics of the environment.
-    excl_fs: list of pairs of (env_type, func) where env_type is the type of 
+    excl_fs: list of pairs of (env_type, func) where env_type is the type of
       material that triggers the exclusive func.
-    agent_excl_f: The exclusive function that agents perform. It takes as 
+    agent_excl_f: The exclusive function that agents perform. It takes as
       input a exclusive program and outputs a ExclusiveInterface.
+    n_sparse_max: if None, agent_excl_f are performed for the entire grid. If it
+      is an integer, instead, we perform a sparse computation masked by actual
+      agent cells. Note that this is capped and if more agents are alive, an 
+      undefined subset of agent cells will be run.
   Returns:
     an updated environment.
   """
   k1, key = jr.split(key)
   excl_op = execute_and_aggregate_exclusive_ops(
-      k1, env, programs, config, excl_fs, agent_excl_f)
+      k1, env, programs, config, excl_fs, agent_excl_f, n_sparse_max)
 
   key, key1 = jr.split(key)
   env = env_exclusive_decision(key1, env, excl_op)
@@ -685,7 +749,8 @@ def env_perform_parallel_update(
     key: KeyType, env: Environment, programs: AgentProgramType,
     config: EnvConfig,
     par_f: Callable[[
-        KeyType, PerceivedData, AgentProgramType], ParallelInterface]
+        KeyType, PerceivedData, AgentProgramType], ParallelInterface],
+    n_sparse_max: int|None = None
     ) -> Environment:
   """Perform parallel operations in the environment.
   
@@ -699,23 +764,29 @@ def env_perform_parallel_update(
     config: EnvConfig describing the physics of the environment.
     par_f: The parallel function that agents perform. It takes as 
       input a parallel program and outputs a ParallelInterface.
+    n_sparse_max: either an int or None. If set to int, we will use a budget for
+      the amounts of agent operations allowed at each step.
   Returns:
     an updated environment.
   """
   # First compute the ParallelOp for each cell.
-  w, h = env.type_grid.shape
-  v_par_f = vectorize_agent_cell_f(make_agent_parallel_interface(
-      par_f, config), w, h)
+  h, w = env.type_grid.shape
 
   etd = config.etd
   perc = perceive_neighbors(env, etd)
 
+  par_interface_f = make_agent_parallel_interface( par_f, config)
   k1, key = jr.split(key)
-  par_op = v_par_f(k1, perc, programs)
+  if n_sparse_max is None:
+    v_par_interface_f = vectorize_agent_cell_f(par_interface_f, h, w)
+    par_op = v_par_interface_f(k1, perc, programs)
+  else:
+    par_op = compute_sparse_agent_cell_f(
+      k1, par_interface_f, perc, env.type_grid, programs, etd, n_sparse_max)
 
   # Then process them.
   mask, denergy_neigh, dstate, new_type = par_op
-  w, h = env.type_grid.shape
+  h, w = env.type_grid.shape
 
   MAP_TO_NEIGH_SLICING = (
       (2, 2, 0), # indexing (-1, -1)
@@ -730,7 +801,7 @@ def env_perform_parallel_update(
   )
   def map_to_neigh(x):
     pad_x = jp.pad(x, ((1, 1), (1, 1), (0, 0), (0, 0)))
-    return jp.stack([jax.lax.dynamic_slice(pad_x, s+(0,), (w, h, 9, 2))[:, :, n]
+    return jp.stack([jax.lax.dynamic_slice(pad_x, s+(0,), (h, w, 9, 2))[:, :, n]
                      for n, s in enumerate(MAP_TO_NEIGH_SLICING)], 2)
 
   denergy = map_to_neigh(denergy_neigh).sum(2)
@@ -757,9 +828,9 @@ def env_perform_parallel_update(
 # Functions for making and processing ReproduceOps.
 
 
-def vectorize_reproduce_f(repr_f, w, h):
+def vectorize_reproduce_f(repr_f, h, w):
   return  lambda key, perc, pos, progs: vmap2(partial(repr_f, programs=progs))(
-      split_2d(key, w, h), perc, pos)
+      split_2d(key, h, w), perc, pos)
 
 
 def _convert_to_reproduce_op(
@@ -781,20 +852,27 @@ def _convert_to_reproduce_op(
   # must want to reproduce
   want_to_repr_m = (mask_logit > 0.0).astype(jp.float32)
 
-  # must be a flower
-  is_flower_m = (self_type == env_config.etd.types.AGENT_FLOWER).astype(
-      jp.float32)
+  # must be a flower.
+  # depending on the kind, flag it as either sexual or asexual reproduction.
+  is_flower_m = self_type == env_config.etd.types.AGENT_FLOWER
+  is_flower_sexual_m = self_type == env_config.etd.types.AGENT_FLOWER_SEXUAL
+
+  is_flower_type = is_flower_m | is_flower_sexual_m
 
   # must have enough energy.
+  min_repr_cost = env_config.reproduce_cost * (
+      1 *is_flower_m + 0.5 * is_flower_sexual_m)
   has_enough_en_m = (
-      (self_en >= env_config.reproduce_cost).all().astype(jp.float32)
+      (self_en >= min_repr_cost).all().astype(jp.float32)
   )
 
-  mask = want_to_repr_m * is_flower_m * has_enough_en_m
+  mask = want_to_repr_m * is_flower_type * has_enough_en_m
 
   stored_en = (self_en - env_config.reproduce_cost) * mask
   aid = (self_id * mask).astype(jp.uint32)
-  return ReproduceOp(mask, pos, stored_en, aid)
+  # don't use booleans.
+  return ReproduceOp(mask, pos, stored_en, aid,
+                     is_flower_sexual_m.astype(jp.int32))
 
 
 def make_agent_reproduce_interface(
@@ -816,8 +894,11 @@ def make_agent_reproduce_interface(
   # Note that we need to pass the extra information of the position of the cell.
   # this is used in the conversion to ReproduceOp, not by the cell.
   def f(key, perc, pos, programs):
-    # it has to be a flower!
-    is_correct_type = config.etd.types.AGENT_FLOWER == perc.neigh_type[4]
+    # it has to be a flower type (sexual or asexual)
+    is_correct_type = (
+        perc.neigh_type[4] == jp.array(
+            [config.etd.types.AGENT_FLOWER,
+             config.etd.types.AGENT_FLOWER_SEXUAL], dtype=jp.uint32)).any(-1)
 
     curr_agent_id = perc.neigh_id[4]
     program = programs[curr_agent_id]
@@ -874,23 +955,23 @@ def _select_random_position_for_seed_within_range(
   return chosen_idx, n_available > 0
 
 
-def env_perform_one_reproduce_op(
-    key: KeyType, env: Environment, repr_op: ReproduceOp, config: EnvConfig):
-  """Perform one single ReproduceOp.
+def env_try_place_one_seed(
+    key: KeyType, env: Environment, op_info, config: EnvConfig):
+  """Try to place one seed in the environment.
   
-  For a ReproduceOp to be successful, fertile soil in the neighborhood must be
+  For this op to be successful, fertile soil in the neighborhood must be
   found.
   If it is, a new seed (two unspecialized cells) are placed in the environment.
   Their age is reset to zero, and they may have a different agent_id than their
   parent, if mutation was set to true.
   """
-  mask, pos, stored_en, aid = repr_op
+  mask, pos, stored_en, aid = op_info
   etd = config.etd
 
   def true_fn(env):
     best_idx_per_column, column_m = find_fertile_soil(env.type_grid, etd)
     t_column, column_valid = _select_random_position_for_seed_within_range(
-        key, pos[1], config.reproduce_min_dist, config.reproduce_max_dist, 
+        key, pos[1], config.reproduce_min_dist, config.reproduce_max_dist,
         column_m)
 
     def true_fn2(env):
@@ -904,28 +985,34 @@ def env_perform_one_reproduce_op(
   return jax.lax.cond(mask, true_fn, lambda env: env, env)
 
 
-def env_reproduce_operations(key, env, b_repr_op, config):
-  """Perform a batch of ReproduceOps.
+def env_try_place_seeds(key, env, b_op_info, config):
+  """Try to place seeds in the environment.
   
   These are performed sequentially. Note that some ops may be masked and
   therefore be noops.
   """
-  def body_f(carry, repr_op):
+  def body_f(carry, op_info):
     env, key = carry
     key, ku = jr.split(key)
-    env = env_perform_one_reproduce_op(ku, env, repr_op, config)
+    env = env_try_place_one_seed(ku, env, op_info, config)
     return (env, key), 0
 
-  (env, key), _ = jax.lax.scan(body_f, (env, key), b_repr_op)
+  (env, key), _ = jax.lax.scan(body_f, (env, key), b_op_info)
   return env
 
 
-def _select_subset_of_reproduce_ops(key, b_repr_op, neigh_type, config):
+def _select_subset_of_reproduce_ops(
+    key, b_repr_op, neigh_type, config, select_sexual_repr):
   # Only a small subset of possible ReproduceOps are selected at each step.
-  # This is config dependent (config.n_reproduce_per_step).
   b_pos = b_repr_op.pos
   mask_flat = b_repr_op.mask.flatten()
   b_pos_flat = b_pos.reshape((-1, 2))
+  n_repr_ops = (config.n_sexual_reproduce_per_step * 2 if select_sexual_repr 
+                else config.n_reproduce_per_step)
+  
+  # Because sexual and asexual reproductions are fundamentally different, use
+  # select_sexual_repr to decide which kinds of reproduce_op to extract.
+  mask_flat *= (select_sexual_repr == b_repr_op.is_sexual).flatten()
 
   p_logits = mask_flat
   # Moreover, flowers can only reproduce if in contact with air. The more air, 
@@ -939,7 +1026,7 @@ def _select_subset_of_reproduce_ops(key, b_repr_op, neigh_type, config):
   k1, key = jr.split(key)
   selected_pos = jr.choice(
       k1, b_pos_flat, p=p_logits/p_logits.sum().clip(1),
-      shape=(config.n_reproduce_per_step,), replace=False)
+      shape=(n_repr_ops,), replace=False)
 
   return selected_pos
 
@@ -952,11 +1039,21 @@ def env_perform_reproduce_update(
     mutate_programs=False,
     programs: (AgentProgramType | None) = None,
     mutate_f: (Callable[[KeyType, AgentProgramType], AgentProgramType] | None
-               ) = None):
+               ) = None,
+    enable_asexual_reproduction=True,
+    enable_sexual_reproduction=True,
+    does_sex_matter=True,
+    sexual_mutate_f: (Callable[[KeyType, AgentProgramType, AgentProgramType],
+                               AgentProgramType] | None
+               ) = None,
+    split_mutator_params_f = None,
+    get_sex_f: (Callable[[AgentProgramType], AgentProgramType] | None) = None,
+    n_sparse_max: int|None = None,
+    return_metrics=False):
   """Perform reproduce operations in the environment.
-  
+
   This is the function that should be used for high level step_env design.
-  
+
   Arguments:
     key: a jax random number generator.
     env: the input environment to be modified.
@@ -974,37 +1071,102 @@ def env_perform_reproduce_update(
       if mutate_programs is set to True.
     mutate_f: The mutation function to mutate 'programs'. This is intended to be
       the method 'mutate' of a Mutator class.
+    enable_asexual_reproduction: if set to True, asexual reproduction is 
+      enabled. At least enable_asexual_reproduction or 
+      enable_sexual_reproduction must be set to True.
+    enable_sexual_reproduction: if set to True, sexual reproduction is enabled.
+    does_sex_matter: if set to True, and enable_sexual_reproduction is True,
+      then sexual reproduction can only occur between different sex entities.
+    sexual_mutate_f: The sexual mutation function to mutate 'programs'. This is 
+      intended to be the method 'mutate' of a SexualMutator class.
+    split_mutator_params_f: a mutator function that explains how to split the
+      parameters of the mutator.
+    get_sex_f: The function that extracts the sex of the agent from its params.
+    n_sparse_max: either an int or None. If set to int, we will use a budget for
+      the amounts of agent operations allowed at each step.
+    return_metrics: if True, return metrics about whether reproduction occurred,
+      and who are the parents and children.
   Returns:
     an updated environment. if mutate_programs is True, it also returns 
     the updated programs.
   """
+  assert enable_asexual_reproduction or enable_sexual_reproduction
   etd = config.etd
   perc = perceive_neighbors(env, etd)
+  h, w = env.type_grid.shape
+
+  b_pos = jp.stack(jp.meshgrid(jp.arange(h), jp.arange(w), indexing="ij"), -1)
+  repr_interface_f = make_agent_reproduce_interface(repr_f, config)
   k1, key = jr.split(key)
-  w, h = env.type_grid.shape
-
-  v_repr_f = vectorize_reproduce_f(
-      make_agent_reproduce_interface(repr_f, config), w, h)
-
-  b_pos = jp.stack(jp.meshgrid(jp.arange(w), jp.arange(h), indexing="ij"), -1)
-  b_repr_op = v_repr_f(k1, perc, b_pos, repr_programs)
+  if n_sparse_max is None:
+    v_repr_f = vectorize_reproduce_f(repr_interface_f, h, w)
+    b_repr_op = v_repr_f(k1, perc, b_pos, repr_programs)
+  else:
+    b_repr_op = compute_sparse_agent_cell_f(
+      k1, repr_interface_f, perc, env.type_grid, repr_programs, etd,
+      n_sparse_max, b_pos.reshape((h*w, 2)))
 
   # Only a small subset of possible ReproduceOps are selected at each step.
-  # This is config dependent (config.n_reproduce_per_step).
-  selected_pos = _select_subset_of_reproduce_ops(
-      k1, b_repr_op, perc.neigh_type, config)
-  spx, spy = selected_pos[:, 0], selected_pos[:, 1]
+  # sexual and asexual reproductions are treated independently.
+  if enable_asexual_reproduction:
+    ## First, asexual reproduction.
+    # This is config dependent (config.n_reproduce_per_step).
+    k1, key = jr.split(key)
+    selected_pos = _select_subset_of_reproduce_ops(
+        k1, b_repr_op, perc.neigh_type, config, 0)
+    spx, spy = selected_pos[:, 0], selected_pos[:, 1]
 
-  selected_mask = b_repr_op.mask[spx, spy]
-  selected_stored_en = b_repr_op.stored_en[spx, spy]
-  selected_aid = b_repr_op.aid[spx, spy]
+    selected_mask = b_repr_op.mask[spx, spy]
+    selected_stored_en = b_repr_op.stored_en[spx, spy]
+    selected_aid = b_repr_op.aid[spx, spy]
 
-  if mutate_programs:
+  if enable_sexual_reproduction:
+    ## Sexual reproduction
+    # This is config dependent (2 * config.n_sexual_reproduce_per_step).
+    # twice, because we need 2 flowers per sexual operation.
+    k1, key = jr.split(key)
+    selected_pos_sx = _select_subset_of_reproduce_ops(
+        k1, b_repr_op, perc.neigh_type, config, 1)
+    spx_sx, spy_sx = selected_pos_sx[:, 0], selected_pos_sx[:, 1]
+    selected_aid_sx = b_repr_op.aid[spx_sx, spy_sx]
+    selected_aid_sx_1 = selected_aid_sx[::2]
+    selected_aid_sx_2 = selected_aid_sx[1::2]
+
+    selected_mask_sx = b_repr_op.mask[spx_sx, spy_sx]
+    # to reproduce, selected_mask_sx of both parent cells to be True. Representing
+    # whether there actually are sexual flowers that triggered a reproduce op.
+    pair_repr_mask_sx = selected_mask_sx[::2] * selected_mask_sx[1::2]
+    if does_sex_matter:
+      # moreover, their sex has to be different. Done to prevent selfing.
+      # we could consider moving this to the sexual mutator as a responsibility.
+      selected_programs_sx = programs[selected_aid_sx]
+      logic_params, _ = vmap(split_mutator_params_f)(selected_programs_sx)
+      sex_of_selected = vmap(get_sex_f)(logic_params)
+      pair_repr_mask_sx = pair_repr_mask_sx * (
+          sex_of_selected[::2] != sex_of_selected[1::2])
+
+    selected_stored_en_sx = b_repr_op.stored_en[spx_sx, spy_sx]
+    # the total energy is the sum of the two flowers.
+    pair_stored_en_sx = selected_stored_en_sx[::2] + selected_stored_en_sx[1::2]
+
+  if not mutate_programs:
+    if enable_asexual_reproduction:
+      repr_aid = selected_aid
+    # with sexual reproduction, we assume that programs are mutated.
+    # but, as a failsafe, we randomly pick a parent's ID otherwise.
+    if enable_sexual_reproduction:
+      k1, key = jr.split(key)
+      parent_m = (
+          jr.uniform(k1, [config.n_sexual_reproduce_per_step]) < 0.5).astype(
+              jp.uint32)[..., None]
+      repr_aid_sx = (selected_aid_sx_1 * parent_m +
+                     selected_aid_sx_2 * (1 - parent_m))
+  else:
     # Logic:
     # look into the pool of programs and see if some of them are not used (
     # there are no agents alive with such program).
-    # if that is the case, create a new program with mutate_f, then modify the 
-    # corresponding 'selected_aid'.
+    # if that is the case, create a new program with mutate_f or
+    # sexual_mutate_f, then modify the corresponding 'selected_aid'.
     # If there is no space, set the mask to zero instead.
 
     # get n agents per id.
@@ -1015,51 +1177,136 @@ def env_perform_reproduce_update(
         is_agent_flat, env_aid_flat, num_segments=programs.shape[0])
 
     sorted_na_idx = jp.argsort(n_agents_in_env).astype(jp.uint32)
-    # we only care about the first few indexes
-    sorted_na_chosen_idx = sorted_na_idx[:config.n_reproduce_per_step]
-    sorted_na_chosen_mask = (n_agents_in_env[sorted_na_chosen_idx] == 0
-                             ).astype(jp.float32)
 
-    # assume that the number of selected reproductions is LESS than the total 
-    # number of programs.
-    to_mutate_programs = programs[selected_aid]
-    mutated_programs = vmap(mutate_f)(
-        jr.split(key, config.n_reproduce_per_step), to_mutate_programs)
+    if enable_asexual_reproduction:
+      ## Asexual reproduction
+      # we only care about the first few indexes
+      sorted_na_chosen_idx = sorted_na_idx[:config.n_reproduce_per_step]
+      sorted_na_chosen_mask = (n_agents_in_env[sorted_na_chosen_idx] == 0
+                              ).astype(jp.float32)
 
-    mutation_mask = (selected_mask * sorted_na_chosen_mask)
-    mutation_mask_e = mutation_mask[:, None]
-    n_mutation_mask_e = 1. - mutation_mask_e
+      # assume that the number of selected reproductions is LESS than the total
+      # number of programs.
+      to_mutate_programs = programs[selected_aid]
+      ku, key = jr.split(key)
+      mutated_programs = vmap(mutate_f)(
+          jr.split(ku, config.n_reproduce_per_step), to_mutate_programs)
 
-    # substitute the programs
-    programs = programs.at[sorted_na_chosen_idx].set(
-        mutation_mask_e * mutated_programs
-        + n_mutation_mask_e * programs[sorted_na_chosen_idx])
-    # update the aid and the mask
-    selected_mask = mutation_mask
-    selected_aid = sorted_na_chosen_idx
+      mutation_mask = (selected_mask * sorted_na_chosen_mask)
+      mutation_mask_e = mutation_mask[:, None]
+      n_mutation_mask_e = 1. - mutation_mask_e
 
-  # these positions (if mask says yes) are then selected to reproduce.
-  # A seed is spawned if possible.
-  env = env_reproduce_operations(
-      key, env,
-      ReproduceOp(selected_mask, selected_pos, selected_stored_en,
-                  selected_aid),
-      config)
-  # The flower is destroyed, regardless of whether the operation succeeds.
-  n_selected_mask = 1 - selected_mask
-  n_selected_mask_uint = n_selected_mask.astype(jp.uint32)
-  env = Environment(
-      env.type_grid.at[spx, spy].set(
-          n_selected_mask_uint * env.type_grid[spx, spy]), # 0 is VOID
-      env.state_grid.at[spx, spy].set(
-          n_selected_mask[..., None] * env.state_grid[spx, spy]
-          ), # set everything to zero
-      env.agent_id_grid.at[spx, spy].set(
-          n_selected_mask_uint * env.agent_id_grid[spx, spy]) # default id 0.
-  )
-  if mutate_programs:
-    return env, programs
-  return env
+      # substitute the programs
+      programs = programs.at[sorted_na_chosen_idx].set(
+          mutation_mask_e * mutated_programs
+          + n_mutation_mask_e * programs[sorted_na_chosen_idx])
+      # update the aid and the mask
+      selected_mask = mutation_mask
+      repr_aid = sorted_na_chosen_idx
+
+    if enable_sexual_reproduction:
+      ## Sexual reproduction
+      # we only care about some few indexes
+      sorted_na_chosen_idx_sx = sorted_na_idx[
+          config.n_reproduce_per_step:
+            config.n_reproduce_per_step+config.n_sexual_reproduce_per_step]
+      sorted_na_chosen_mask_sx = (
+          n_agents_in_env[sorted_na_chosen_idx_sx] == 0).astype(jp.float32)
+
+      # assume that the number of selected reproductions is LESS than the total
+      # number of programs.
+      to_mutate_programs_sx = programs[selected_aid_sx]
+      ku, key = jr.split(key)
+      mutated_programs_sx = vmap(sexual_mutate_f)(
+          jr.split(ku, config.n_sexual_reproduce_per_step),
+          to_mutate_programs_sx[::2], to_mutate_programs_sx[1::2])
+      # To assess whether we can perform a sexual reproduction, we need, for
+      # each chosen position:
+      # 1. sorted_na_chosen_mask_sx to be True, representing whether there is
+      #    space for new programs.
+      # 2. pair_repr_mask_sx to be True.
+      pair_repr_mask_sx = (pair_repr_mask_sx * sorted_na_chosen_mask_sx)
+
+      pair_repr_mask_sx_e = pair_repr_mask_sx[:, None]
+      n_pair_repr_mask_sx_e = 1. - pair_repr_mask_sx_e
+
+      # substitute the programs
+      programs = programs.at[sorted_na_chosen_idx_sx].set(
+          pair_repr_mask_sx_e * mutated_programs_sx
+          + n_pair_repr_mask_sx_e * programs[sorted_na_chosen_idx_sx])
+
+      # save the new ids for the children.
+      repr_aid_sx = sorted_na_chosen_idx_sx
+
+  if return_metrics:
+    metrics = {}
+    
+  if enable_asexual_reproduction:
+    ## Asexual reproduction
+    # these positions (if mask says yes) are then selected to reproduce.
+    # A seed is spawned if possible.
+    k1, key = jr.split(key)
+    env = env_try_place_seeds(
+        k1, env,
+        (selected_mask, selected_pos, selected_stored_en, repr_aid),
+        config)
+    # The flower is destroyed, regardless of whether the operation succeeds.
+    n_selected_mask = 1 - selected_mask
+    n_selected_mask_uint = n_selected_mask.astype(jp.uint32)
+    env = Environment(
+        env.type_grid.at[spx, spy].set(
+            n_selected_mask_uint * env.type_grid[spx, spy]), # 0 is VOID
+        env.state_grid.at[spx, spy].set(
+            n_selected_mask[..., None] * env.state_grid[spx, spy]
+            ), # set everything to zero
+        env.agent_id_grid.at[spx, spy].set(
+            n_selected_mask_uint * env.agent_id_grid[spx, spy]) # default id 0.
+    )
+
+    if return_metrics:
+      metrics["asexual_reproduction"] = (selected_mask, selected_aid, repr_aid)
+
+  if enable_sexual_reproduction:
+    ## Sexual reproduction
+    # seeds will spawn in a neighborhood of one of the two parents, chosen at
+    # random.
+    k1, key = jr.split(key)
+    pos_m = (jr.uniform(k1, [config.n_sexual_reproduce_per_step]) < 0.5).astype(
+        jp.int32)[..., None]
+    repr_pos_sx = (selected_pos_sx[::2] * pos_m +
+                   selected_pos_sx[1::2] * (1 - pos_m))
+
+    k1, key = jr.split(key)
+    env = env_try_place_seeds(
+        k1, env,
+        (pair_repr_mask_sx, repr_pos_sx, pair_stored_en_sx, repr_aid_sx),
+        config)
+    # The flower is destroyed, regardless of whether the operation succeeds.
+    # update the selected_mask_sx, since some flowers may not have been actually
+    # selected.
+    # mutation_mask_sx is the outcome of a pair, so you need to repeat it twice.
+    destroy_mask_sx = jp.repeat(pair_repr_mask_sx, 2, axis=-1)
+    n_destroy_mask_sx = 1 - destroy_mask_sx
+    n_destroy_mask_sx_uint = n_destroy_mask_sx.astype(jp.uint32)
+    env = Environment(
+        env.type_grid.at[spx_sx, spy_sx].set(
+            n_destroy_mask_sx_uint * env.type_grid[spx_sx, spy_sx]), # 0 is VOID
+        env.state_grid.at[spx_sx, spy_sx].set(
+            n_destroy_mask_sx[..., None] * env.state_grid[spx_sx, spy_sx]
+            ), # set everything to zero
+        env.agent_id_grid.at[spx_sx, spy_sx].set(  # default id is 0
+            n_destroy_mask_sx_uint * env.agent_id_grid[spx_sx, spy_sx])
+    )
+
+    if return_metrics:
+      metrics["sexual_reproduction"] = (
+          pair_repr_mask_sx, selected_aid_sx_1, selected_aid_sx_2, 
+          repr_aid_sx)
+
+  result = (env, programs) if mutate_programs else env
+  if return_metrics:
+    return result, metrics
+  return result
 
 
 def intercept_reproduce_ops(
@@ -1076,6 +1323,9 @@ def intercept_reproduce_ops(
   NOTE: This method is largely code repetition (with 
   env_perform_reproduce_update). I chose to do that to avoid making the latter
   too complex. But I might refactor it eventually.
+  
+  TODO: this was not modified for sexual reproduction! Double check it can be
+  used anyway.
   
   Arguments:
     key: a jax random number generator.
@@ -1096,17 +1346,17 @@ def intercept_reproduce_ops(
   etd = config.etd
   perc = perceive_neighbors(env, etd)
   k1, key = jr.split(key)
-  w, h = env.type_grid.shape
+  h, w = env.type_grid.shape
   v_repr_f = vectorize_reproduce_f(
-      make_agent_reproduce_interface(repr_f, config), w, h)
+      make_agent_reproduce_interface(repr_f, config), h, w)
 
-  b_pos = jp.stack(jp.meshgrid(jp.arange(w), jp.arange(h), indexing="ij"), -1)
+  b_pos = jp.stack(jp.meshgrid(jp.arange(h), jp.arange(w), indexing="ij"), -1)
   b_repr_op = v_repr_f(k1, perc, b_pos, repr_programs)
 
   # Only a small subset of possible ReproduceOps are selected at each step.
   # This is config dependent (config.n_reproduce_per_step).
   selected_pos = _select_subset_of_reproduce_ops(
-      k1, b_repr_op, perc.neigh_type, config)
+      k1, b_repr_op, perc.neigh_type, config, False)
   spx, spy = selected_pos[:, 0], selected_pos[:, 1]
 
   selected_mask = b_repr_op.mask[spx, spy]
@@ -1136,7 +1386,7 @@ def intercept_reproduce_ops(
 ### Gravity logic.
 
 
-def _line_gravity(env, x, h, etd):
+def _line_gravity(env, x, w, etd):
   type_grid, state_grid, agent_id_grid = env
   env_state_size = state_grid.shape[-1]
   # self needs to be affected by gravity:
@@ -1152,25 +1402,25 @@ def _line_gravity(env, x, h, etd):
       vmap(lambda ctype: (ctype != etd.structural_mats).all())(type_grid[x]))
   swap_mask = (is_gravity_mat & is_down_intangible_mat & is_crumbling
                ).astype(jp.float32)
-  # [h] -> [1,h]
+  # [w] -> [1,w]
   swap_mask_e = swap_mask[None,:]
   swap_mask_uint_e = swap_mask_e.astype(jp.uint32)
 
-  idx_swap_x = jp.repeat(jp.array([x, x+1]), h)
-  idx_swap_y = jp.concatenate([jp.arange(0, h, dtype=jp.int32),
-                               jp.arange(0, h, dtype=jp.int32)], 0)
-  type_slice = jax.lax.dynamic_slice(type_grid, (x, 0), (2, h))
+  idx_swap_x = jp.repeat(jp.array([x, x+1]), w)
+  idx_swap_y = jp.concatenate([jp.arange(0, w, dtype=jp.int32),
+                               jp.arange(0, w, dtype=jp.int32)], 0)
+  type_slice = jax.lax.dynamic_slice(type_grid, (x, 0), (2, w))
   type_upd = (type_slice * (1 - swap_mask_uint_e) +
               type_slice[::-1] * swap_mask_uint_e).reshape(-1)
   new_type_grid = type_grid.at[idx_swap_x, idx_swap_y].set(type_upd)
   swap_mask_ee = swap_mask_e[..., None]
   state_slice = jax.lax.dynamic_slice(
-      state_grid, (x, 0, 0), (2, h, env_state_size))
+      state_grid, (x, 0, 0), (2, w, env_state_size))
   state_upd = (state_slice * (1. - swap_mask_ee) +
                state_slice[::-1] * swap_mask_ee).reshape([-1, env_state_size])
   new_state_grid = state_grid.at[idx_swap_x, idx_swap_y].set(state_upd)
   # agent ids
-  id_slice = jax.lax.dynamic_slice(agent_id_grid, (x, 0), (2, h))
+  id_slice = jax.lax.dynamic_slice(agent_id_grid, (x, 0), (2, w))
   id_upd = (id_slice * (1 - swap_mask_uint_e) +
             id_slice[::-1] * swap_mask_uint_e).reshape(-1)
   new_agent_id_grid = agent_id_grid.at[idx_swap_x, idx_swap_y].set(id_upd)
@@ -1188,11 +1438,11 @@ def env_process_gravity(env: Environment, etd: EnvTypeDef) -> Environment:
   Create a new env by applying gravity on every line, from bottom to top.
   Nit: right now, you can't fall off, so we start from the second to bottom.
   """
-  w, h = env.type_grid.shape
+  h, w = env.type_grid.shape
   env, _ = jax.lax.scan(
-      partial(_line_gravity, h=h, etd=etd),
+      partial(_line_gravity, w=w, etd=etd),
       env,
-      jp.arange(w-2, -1, -1))
+      jp.arange(h-2, -1, -1))
   return env
 
 
@@ -1349,7 +1599,7 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
   neigh_asking_nutrients = jax.lax.conv_general_dilated_patches(
       asking_nutrients[None,:],
       (3, 3), (1, 1), "SAME", dimension_numbers=("NHWC", "OIHW", "NHWC"))[0]
-  # we want to have [w,h,9,c] so that the indexing is intuitive and consistent
+  # we want to have [h,w,9,c] so that the indexing is intuitive and consistent
   # for both neigh vectors.
   neigh_asking_nutrients = neigh_asking_nutrients.reshape(
       neigh_asking_nutrients.shape[:2] + (2, 9)).transpose((0, 1, 3, 2))
@@ -1363,7 +1613,7 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
   absorb_perc = jax.lax.conv_general_dilated_patches(
       perc_to_give[None,:],
       (3, 3), (1, 1), "SAME", dimension_numbers=("NHWC", "OIHW", "NHWC"))[0]
-  # we want to have [w,h,9,c] so that the indexing is intuitive and consistent
+  # we want to have [h,w,9,c] so that the indexing is intuitive and consistent
   # for both neigh vectors.
   absorb_perc = absorb_perc.reshape(
       absorb_perc.shape[:2] + (2, 9)).transpose((0, 1, 3, 2))
@@ -1376,7 +1626,7 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
   is_agent_grid = etd.is_agent_fn(env.type_grid)
   is_agent_grid_e_f = is_agent_grid.astype(jp.float32)[..., None]
   ag_spec_idx = etd.get_agent_specialization_idx(env.type_grid)
-  # [w,h,3] @ [3,2] -> [w,h,2]
+  # [h,w,3] @ [3,2] -> [h,w,2]
   agent_dissipation_rate = etd.dissipation_rate_per_spec[ag_spec_idx]
   dissipated_energy = (config.dissipation_per_step * agent_dissipation_rate *
                        is_agent_grid_e_f)

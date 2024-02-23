@@ -82,15 +82,23 @@ class AgentLogic(ABC):
     Return a ExclusiveInterface.
     """
     pass
-  
+
   @abstractmethod
   def repr_f(self, key: KeyType, perc: PerceivedData, params: AgentProgramType
              ) -> ReproduceInterface:
     """Perform a reproduce function.
-    
+
     params must be only the reproduce params, not all of them.
-    
+
     Return a ReproduceInterface.
+    """
+    pass
+
+  @abstractmethod
+  def get_sex(self, params: AgentProgramType):
+    """Extract the sex parameter from params.
+
+    The sex parameter is a jax int32.
     """
     pass
 
@@ -127,17 +135,39 @@ class BasicAgentLogic(AgentLogic):
 
   The cells can optionally perceive agent_ids. If so, they will never give
   nutrients to cells with different agent_ids.
+
+  sex_sensitivity is a parameter that is used to initialize and detect the sex
+  of a DNA. Check get_sex to see how it is used.
+  I recommend having a sex_sensitivity equal to 1/sd of the mutator used.
   """
 
-  def __init__(self, config: EnvConfig, perceive_ids=True, minimal_net=False):
+  def __init__(self, config: EnvConfig, perceive_ids=True, minimal_net=False,
+               make_asexual_flowers_likely=True,
+               make_sexual_flowers_likely=True,
+               sex_sensitivity=1000., init_noise=None):
+    """Constructor.
+
+    make_asexual_flowers_likely and make_sexual_flowers_likely are checked to
+    initialize the parameters to encourage a certain kind of flowers to spawn.
+
+    If init_noise is not None, the initialization for !minimal_net will
+    initialize several parameters with a certain noise, with it being 
+    init_noise * glorot_initialization of weight matrices.
+    if init_noise is None, the initial network is a homomorphism of a
+    minimal_nel (same outputs).
+    """
     self.config = config
     # the types are perceived as one-hot vectors.
     self.n_types = len(config.etd.types.keys())
-    self.n_spec = 4  # specializations of agents
+    self.n_spec = len(config.etd.agent_types)  # specializations of agents
     # Whether agent ids are perceivable by the agent.
     # if set to true, agents do not give energy to agents with different ids.
     self.perceive_ids = perceive_ids
     self.minimal_net = minimal_net
+    self.make_asexual_flowers_likely = make_asexual_flowers_likely
+    self.make_sexual_flowers_likely = make_sexual_flowers_likely
+    self.sex_sensitivity = sex_sensitivity
+    self.init_noise = init_noise
     self.state_clip_val = 3.
 
     ## Parallel op:
@@ -207,11 +237,16 @@ class BasicAgentLogic(AgentLogic):
         params,
         (n_par_params, n_par_params + self.excl_num_params), axis=-1)
 
+  def _cond_init(self, key, shape):
+    if self.init_noise is not None:
+      return glorot_normal(batch_axis=0)(key, shape) * self.init_noise
+    return jp.zeros(shape)
+
   def dsm_init(self, key):
     if self.minimal_net:
       # in this case, the agent cannot modify its internal state.
       return (jp.empty(0),)
- 
+
     # Set initial effect on state to zero.
     # a 2 layer NN.
     # # We look at proportions of neighboring cells and your internal state.
@@ -225,8 +260,8 @@ class BasicAgentLogic(AgentLogic):
     ku, key = jr.split(key)
     dw0 = glorot_normal(batch_axis=0)(ku, (self.n_spec, insize, hsize))
     db0 = jp.zeros((self.n_spec, hsize))
-    # output is defaulted to zero.
-    dw1 = jp.zeros((self.n_spec, hsize, outsize))
+    key, ku = jr.split(key)
+    dw1 = self._cond_init(ku, (self.n_spec, hsize, outsize))
     db1 = jp.zeros((self.n_spec, outsize))
 
     return (dw0, db0, dw1, db1)
@@ -281,18 +316,30 @@ class BasicAgentLogic(AgentLogic):
     w = w.at[:, etd.types.AGENT_FLOWER, spec_idxs.AGENT_UNSPECIALIZED].set(
         div / 8.0
     )
+    w = w.at[:, etd.types.AGENT_FLOWER_SEXUAL,
+             spec_idxs.AGENT_UNSPECIALIZED].set(div / 8.0)
     w = w.at[:, etd.types.EARTH, spec_idxs.AGENT_UNSPECIALIZED].set(
         -div / 8.0
     )
     w = w.at[:, etd.types.AIR, spec_idxs.AGENT_UNSPECIALIZED].set(
         -div / 8.0
     )
-    # Flowers only grow if they are surrounded by leaves and some air.
-    w = w.at[:, etd.types.AGENT_LEAF, spec_idxs.AGENT_FLOWER].set(div / 4.0)
-    w = w.at[:, etd.types.AIR, spec_idxs.AGENT_FLOWER].set(div / 2.0)
+
+    if self.make_asexual_flowers_likely:
+      # Flowers only grow if they are surrounded by leaves and some air.
+      w = w.at[:, etd.types.AGENT_LEAF, spec_idxs.AGENT_FLOWER].set(div / 4.0)
+      w = w.at[:, etd.types.AIR, spec_idxs.AGENT_FLOWER].set(div / 2.0)
+
+    if self.make_sexual_flowers_likely:
+      # Sexual flowers start with the same chance of being spawned.
+      w = w.at[:, etd.types.AGENT_LEAF, spec_idxs.AGENT_FLOWER_SEXUAL].set(
+          div / 4.0)
+      w = w.at[:, etd.types.AIR, spec_idxs.AGENT_FLOWER_SEXUAL].set(div / 2.0)
 
     # If you are a flower, never change!
     w = w.at[spec_idxs.AGENT_FLOWER, :, spec_idxs.AGENT_FLOWER].set(div)
+    w = w.at[spec_idxs.AGENT_FLOWER_SEXUAL, :,
+             spec_idxs.AGENT_FLOWER_SEXUAL].set(div)
 
     if self.minimal_net:
       return w, b
@@ -308,8 +355,8 @@ class BasicAgentLogic(AgentLogic):
     ku, key = jr.split(key)
     dw0 = glorot_normal(batch_axis=0)(ku, (self.n_spec, insize, hsize))
     db0 = jp.zeros((self.n_spec, hsize))
-    # output is defaulted to zero.
-    dw1 = jp.zeros((self.n_spec, hsize, outsize))
+    key, ku = jr.split(key)
+    dw1 = self._cond_init(ku, (self.n_spec, hsize, outsize))
     db1 = jp.zeros((self.n_spec, outsize))
 
     return (w, b), (dw0, db0, dw1, db1)
@@ -374,8 +421,8 @@ class BasicAgentLogic(AgentLogic):
     ku, key = jr.split(key)
     dw0 = glorot_normal(batch_axis=0)(ku, (self.n_spec, insize, hsize))
     db0 = jp.zeros((self.n_spec, hsize))
-    # output is defaulted to zero.
-    dw1 = jp.zeros((self.n_spec, hsize, outsize))
+    key, ku = jr.split(key)
+    dw1 = self._cond_init(ku, (self.n_spec, hsize, outsize))
     db1 = jp.zeros((self.n_spec, outsize))
 
     return (b, keep_en, (dw0, db0, dw1, db1))
@@ -407,7 +454,7 @@ class BasicAgentLogic(AgentLogic):
       # defaults to 0 if it is not an agent. It doesn't matter since nonagents
       # are later filtered out.
       neigh_spec = jax.nn.one_hot(
-          self.config.etd.get_agent_specialization_idx(neigh_type), 4)
+          self.config.etd.get_agent_specialization_idx(neigh_type), self.n_spec)
 
       def compute_logits_f(t_state, t_spec):
         inputs = jp.concatenate([norm_self_state, t_state, t_spec], -1)
@@ -504,8 +551,8 @@ class BasicAgentLogic(AgentLogic):
     ku, key = jr.split(key)
     dw0 = glorot_normal(batch_axis=0)(ku, (self.n_spec, insize, hsize))
     db0 = jp.zeros((self.n_spec, hsize))
-    # output is defaulted to zero.
-    dw1 = jp.zeros((self.n_spec, hsize, outsize))
+    key, ku = jr.split(key)
+    dw1 = self._cond_init(ku, (self.n_spec, hsize, outsize))
     db1 = jp.zeros((self.n_spec, outsize))
 
     return minimal_params, (dw0, db0, dw1, db1)
@@ -513,11 +560,28 @@ class BasicAgentLogic(AgentLogic):
   def repr_init(self, key):
     """Initialization for repr_f.
     
-    Simply create a default requirement of nutrients for triggering the op.
+    Create a default requirement of nutrients for triggering the op.
     Note that this value is normalized by the material_nutrient_cap.
+    This value is different for FLOWER and FLOWER_SEXUAL.
+    Also, create a sex.
+    A sex is inferred by doing floor(sex_p * self.sex_sensitivity).
     """
-    return (self.config.reproduce_cost + (self.config.dissipation_per_step * 4)
-            + self.config.specialize_cost * 2) / self.config.material_nutrient_cap
+    min_repr_en = (
+        self.config.reproduce_cost + (self.config.dissipation_per_step * 4)
+        + self.config.specialize_cost * 2) / self.config.material_nutrient_cap
+    # sexual reproduction combines energy of two plants.
+    min_repr_en_sex = min_repr_en / 2.
+
+    # format params fn has issues with zero dimensional parameters. So as a hack
+    # I make this a one dimensional array.
+    sex_m = (jr.uniform(key, (1,)) < 0.5).astype(jp.float32)
+    sex_p = (0.5 + sex_m) / self.sex_sensitivity
+    return (min_repr_en, min_repr_en_sex, sex_p)
+
+  def get_sex(self, params: AgentProgramType):
+    _, _, repr_p = self.split_params_f(params)
+    _,_, sex_p = self._repr_format_params_fn(repr_p)
+    return jp.floor(sex_p[..., 0] * self.sex_sensitivity).astype(jp.int32)
 
   def initialize(self, key):
     k1, k2, k3, k4, k5 = jr.split(key, 5)
@@ -597,7 +661,6 @@ class BasicAgentLogic(AgentLogic):
     denergy_neigh = self.denm_f(
         denm_params, norm_neigh_state, spec_idx, neigh_type, neigh_id, self_en)
 
-
     return ParallelInterface(denergy_neigh, dstate, new_spec_logit)
 
   def excl_f(self, key, perc, params):
@@ -646,7 +709,8 @@ class BasicAgentLogic(AgentLogic):
     # This is a probability depending on the average number of neighbors.
     avg_neigh_types = self.get_avg_neigh_types(neigh_type)
     avg_agents = avg_neigh_types[
-        etd.types.AGENT_UNSPECIALIZED : etd.types.AGENT_UNSPECIALIZED + 4
+        etd.types.AGENT_UNSPECIALIZED : 
+          etd.types.AGENT_UNSPECIALIZED + self.n_spec
     ].sum(-1)
     ku, key = jax.random.split(key)
     rand_prob_sp = (jr.uniform(ku) < jax.nn.sigmoid(
@@ -712,18 +776,26 @@ class BasicAgentLogic(AgentLogic):
 
   def repr_f(self, key, perc, params):
     """Implementation of repr_f.
-    
-    A simple mask that entirely depends on how much energy we have.
+
+    A simple mask that depends on how much energy we have, and whether the
+    flower is sexual or asexual.
     """
+    min_repr_en, min_repr_en_sex, _ = self._repr_format_params_fn(params)
+    neigh_type, _, _ = perc
+    self_type = neigh_type[4]
+
     norm_self_en = (perc.neigh_state[4, evm.EN_ST : evm.EN_ST + 2]
                     / self.config.material_nutrient_cap)
 
-    # we could also check whether we are flowers, but it doesn't matter since
-    # only flowers can reproduce and it gets masked afterwards.
+    is_flower = self_type == self.config.etd.types.AGENT_FLOWER
+    is_flower_sex = self_type == self.config.etd.types.AGENT_FLOWER_SEXUAL
+    flower_mask_logit = is_flower * (norm_self_en > min_repr_en).all().astype(
+        jp.float32)
+    flower_sex_mask_logit = is_flower_sex * (
+        norm_self_en > min_repr_en_sex).all().astype(jp.float32)
 
     # The switch checks whether the output logit is >0.
-    mask_logit = (norm_self_en > params).all().astype(jp.float32)
-    return ReproduceInterface(mask_logit)
+    return ReproduceInterface(flower_mask_logit + flower_sex_mask_logit)
 
 
 def adapt_dna_to_different_basic_logic(

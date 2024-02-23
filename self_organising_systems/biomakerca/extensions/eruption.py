@@ -79,7 +79,7 @@ def is_burnable_fn(t, etd):
   """Return True if t is any of (LEAF,FLOWER,UNSPECIALIZED) agent types."""
   burnable_types = jp.array([
       etd.types.AGENT_LEAF, etd.types.AGENT_FLOWER,
-      etd.types.AGENT_UNSPECIALIZED])
+      etd.types.AGENT_FLOWER_SEXUAL, etd.types.AGENT_UNSPECIALIZED])
   return (t == burnable_types).any(axis=-1)
 
 
@@ -255,7 +255,7 @@ def get_eruption_config():
   return evm.get_env_and_config(
       "persistence", width_type="petri", h=10, etd=EruptionTypeDef()).config
 
-### Eruption environment
+### Original Eruption environment
 
 def create_eruption_env(h, config):
   """Create the Eruption environment.
@@ -408,7 +408,7 @@ def test_freq_lava(key, st_env, config, init_program, agent_logic, mutator,
   def make_frame(env, lava_perc):
     return add_text_to_img(
         zoom(evm.grab_image_from_env(env, config), zoom_sz),
-        "LAVA FREQUENCY: {:.3f}%".format(lava_perc*100), 
+        "LAVA FREQUENCY: {:.3f}%".format(lava_perc*100),
         origin=(5, 35),
         fontScale=1.)
 
