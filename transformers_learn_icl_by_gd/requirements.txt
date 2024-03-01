@@ -1,0 +1,10 @@
+jax==0.3.25
+jaxlib==0.3.25
+dm-haiku==0.0.10
+optax==0.1.7
+ml_collections==0.1.1
+Pillow==9.4.0
+matplotlib==3.7.1
+scipy==1.11.3
+tqdm==4.66.1
+requests==2.31.0
