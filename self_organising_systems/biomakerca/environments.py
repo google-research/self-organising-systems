@@ -31,6 +31,7 @@ from jax import numpy as jp
 from self_organising_systems.biomakerca.utils import dotdict
 from self_organising_systems.biomakerca.utils import vmap2
 from self_organising_systems.biomakerca.utils import stringify_class
+from self_organising_systems.biomakerca.utils import arrayContains
 
 ### Environment
 # This is the state of any given environment. It is made of 3 grids:
@@ -146,6 +147,11 @@ class EnvTypeDef(ABC):
     structure_decay_mats: Indexed by the type enum, it tells how much structure
       decays. Values should not matter for non structurally propagating cells.
       A jp array.
+    propagate_air_nutrients_mats: Materials that propagate air nutrients.
+      A jp array.
+    immutable_creates_nutrients: bool, whether IMMUTABLE cell types create 
+      nutrients. It should be True by default, but sometimes this may not be 
+      desirable.
     dissipation_rate_per_spec: A modifier of the dissipation based on the agent
       specialization. A jp array of size (n_specializations, 2).
     type_color_map: A map of type to color. Useful for visualizations.
@@ -167,6 +173,7 @@ class EnvTypeDef(ABC):
         "types", "materials_list", "agent_types", "intangible_mats", 
         "gravity_mats", "structural_mats", "propagate_structure_mats", 
         "agent_spawnable_mats", "specialization_idxs", "structure_decay_mats",
+        "propagate_air_nutrients_mats", "immutable_creates_nutrients",
         "aging_mats", "dissipation_rate_per_spec", "type_color_map"]
     for attr in req_attrs:
       if not hasattr(self, attr):
@@ -211,7 +218,7 @@ class EnvTypeDef(ABC):
   def is_agent_fn(self, env_type):
     """Return true if the cell is an agent. Works for any input dimensionality.
     """
-    return (env_type[..., None] == self.agent_types).any(axis=-1)
+    return arrayContains(self.agent_types, env_type)
   
   def __str__(self):
     return stringify_class(self, exclude_list=["type_color_map"])
@@ -357,6 +364,8 @@ class DefaultTypeDef(EnvTypeDef):
     self.structure_decay_mats = convert_string_dict_to_type_array(
         structure_decay_mats_dict, types)
     self.aging_mats = self.agent_types
+    self.propagate_air_nutrients_mats = jp.array([types.AIR], dtype=jp.int32)
+    self.immutable_creates_nutrients = True
 
     self.dissipation_rate_per_spec = convert_string_dict_to_type_array(
         dissipation_rate_per_spec_dict, self.specialization_idxs)

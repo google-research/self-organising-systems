@@ -44,6 +44,7 @@ from self_organising_systems.biomakerca.environments import EnvTypeDef
 from self_organising_systems.biomakerca.environments import Environment
 from self_organising_systems.biomakerca.utils import split_2d
 from self_organising_systems.biomakerca.utils import vmap2
+from self_organising_systems.biomakerca.utils import arrayContains
 
 ### Define some useful types for typing.
 KeyType = jax.typing.ArrayLike
@@ -345,7 +346,7 @@ def _convert_to_exclusive_op(
   # must have enough energy for spawn.
   has_enough_energy = (self_en >= env_config.spawn_cost).all()
   # agents can only be spawned in some materials.
-  is_valid_target = (neigh_type[sp_idx] == etd.agent_spawnable_mats).any()
+  is_valid_target = arrayContains(etd.agent_spawnable_mats, neigh_type[sp_idx])
 
   sp_m = sp_m * (has_enough_energy & is_valid_target).astype(jp.float32)
   
@@ -895,10 +896,11 @@ def make_agent_reproduce_interface(
   # this is used in the conversion to ReproduceOp, not by the cell.
   def f(key, perc, pos, programs):
     # it has to be a flower type (sexual or asexual)
-    is_correct_type = (
-        perc.neigh_type[4] == jp.array(
+    is_correct_type = arrayContains(
+        jp.array(
             [config.etd.types.AGENT_FLOWER,
-             config.etd.types.AGENT_FLOWER_SEXUAL], dtype=jp.uint32)).any(-1)
+             config.etd.types.AGENT_FLOWER_SEXUAL], dtype=jp.uint32),
+        perc.neigh_type[4])
 
     curr_agent_id = perc.neigh_id[4]
     program = programs[curr_agent_id]
@@ -1390,11 +1392,9 @@ def _line_gravity(env, x, w, etd):
   type_grid, state_grid, agent_id_grid = env
   env_state_size = state_grid.shape[-1]
   # self needs to be affected by gravity:
-  is_gravity_mat = vmap(lambda ctype: (ctype == etd.gravity_mats).any())(
-      type_grid[x])
+  is_gravity_mat = arrayContains(etd.gravity_mats, type_grid[x])
   # down needs to be intangible:
-  is_down_intangible_mat = vmap(
-      lambda ctype: (ctype == etd.intangible_mats).any())(type_grid[x+1])
+  is_down_intangible_mat = arrayContains(etd.intangible_mats, type_grid[x+1])
   # structural integrity needs to be 0.
   # or it must be not structural
   is_crumbling = jp.logical_or(
@@ -1466,9 +1466,7 @@ def process_structural_integrity(env: Environment, config: EnvConfig):
   type_grid, state_grid, agent_id_grid = env
   etd = config.etd
   is_immovable = type_grid == etd.types.IMMOVABLE
-  propagates_structure = (type_grid[..., None] == etd.propagate_structure_mats
-                          ).any(-1)
-
+  propagates_structure = arrayContains(etd.propagate_structure_mats, type_grid)
   # if cell is immovable, set the structural integrity to the cap.
   # otherwise, if it is structural, propagate the integrity of the maximum
   # neighbor.
@@ -1547,15 +1545,19 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
       jp.float32)
   earth_nutrient = (
       env.state_grid[:,:, evm.EN_ST+evm.EARTH_NUTRIENT_RPOS] * is_earth_grid_f +
-      config.material_nutrient_cap[evm.EARTH_NUTRIENT_RPOS
-                                   ] * is_immovable_grid_f)
+      config.material_nutrient_cap[
+          evm.EARTH_NUTRIENT_RPOS] * is_immovable_grid_f *
+      etd.immutable_creates_nutrients) # do not create nutrients here otherwise.
   # diffuse this nutrient to all earth (+ immovable, which remains unchanged).
   EARTH_DIFFUSION_RATE = 0.1
   neigh_earth_nutrient = jax.lax.conv_general_dilated_patches(
       earth_nutrient[None,:,:, None],
       (3, 3), (1, 1), "SAME", dimension_numbers=("NHWC", "OIHW", "NHWC"))[0]
+  # immutable cells may not create nutrients. In that case, do not diffuse there
+  earth_nutrient_diffusion_mask = is_earth_grid_f + (
+      is_immovable_grid_f * etd.immutable_creates_nutrients)
   neigh_earth_mask = jax.lax.conv_general_dilated_patches(
-      (is_earth_grid_f+is_immovable_grid_f)[None,:,:, None],
+      earth_nutrient_diffusion_mask[None,:,:, None],
       (3, 3), (1, 1), "SAME", dimension_numbers=("NHWC", "OIHW", "NHWC"))[0]
   d_earth_n = ((neigh_earth_nutrient - earth_nutrient[:,:, None]
                 ) * neigh_earth_mask * EARTH_DIFFUSION_RATE).sum(-1)
@@ -1564,10 +1566,12 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
   new_earth_nutrient = (earth_nutrient + d_earth_n) * is_earth_grid_f
 
   # air nutrients:
-  is_air_grid_f = (env.type_grid == etd.types.AIR).astype(jp.float32)
+  propagate_air_nutrients_f = arrayContains(
+      etd.propagate_air_nutrients_mats, env.type_grid)
   is_sun_grid_f = (env.type_grid == etd.types.SUN).astype(jp.float32)
   air_nutrient = (
-      env.state_grid[:,:, evm.EN_ST+evm.AIR_NUTRIENT_RPOS] * is_air_grid_f +
+      env.state_grid[:,:, evm.EN_ST+evm.AIR_NUTRIENT_RPOS] *
+      propagate_air_nutrients_f +
       config.material_nutrient_cap[evm.AIR_NUTRIENT_RPOS] * is_sun_grid_f)
   # diffuse this nutrient to all air (+ sun, which remains unchanged.)
   AIR_DIFFUSION_RATE = 0.1
@@ -1577,13 +1581,13 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
       air_nutrient[None,:,:, None],
       (3, 3), (1, 1), "SAME", dimension_numbers=("NHWC", "OIHW", "NHWC"))[0]
   neigh_air_mask = jax.lax.conv_general_dilated_patches(
-      (is_air_grid_f+is_sun_grid_f)[None,:,:, None],
+      (propagate_air_nutrients_f+is_sun_grid_f)[None,:,:, None],
       (3, 3), (1, 1), "SAME", dimension_numbers=("NHWC", "OIHW", "NHWC"))[0]
   d_air_n = ((neigh_air_nutrient - air_nutrient[:,:, None]
               ) * neigh_air_mask * AIR_DIFFUSION_RATE).sum(-1)
 
   # discard sun nutrients.
-  new_air_nutrient = (air_nutrient + d_air_n) * is_air_grid_f
+  new_air_nutrient = (air_nutrient + d_air_n) * propagate_air_nutrients_f
 
   ### Nutrient extraction.
   
@@ -1594,7 +1598,11 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
   asking_nutrients = jp.stack(
       [is_root_grid, is_leaf_grid], -1) * config.absorbtion_amounts
   # this is how much is available.
-  available_nutrients = jp.stack([new_earth_nutrient, new_air_nutrient], -1)
+  # NOTE: currently, ony air can have air nutrients extracted.
+  # Consider changing this if you want to change restrictions.
+  is_air_grid_f = (env.type_grid == etd.types.AIR).astype(jp.float32)
+  available_nutrients = jp.stack([new_earth_nutrient,
+                                  new_air_nutrient*is_air_grid_f], -1)
   # compute the total amount of asking nutrients per cell and nutrient kind.
   neigh_asking_nutrients = jax.lax.conv_general_dilated_patches(
       asking_nutrients[None,:],
@@ -1609,6 +1617,11 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
                   ).clip(0, 1)
   # also update your nutrients accordingly.
   new_mat_nutrients = (available_nutrients - tot_asking_nutrients).clip(0.)
+  # put back air nutrients not in air materials.
+  new_mat_nutrients = new_mat_nutrients.at[..., evm.AIR_NUTRIENT_RPOS].set(
+      new_mat_nutrients[..., evm.AIR_NUTRIENT_RPOS] + 
+      new_air_nutrient*(1. - is_air_grid_f)
+  )
   # and give this energy to the agents, scaled by this percentage.
   absorb_perc = jax.lax.conv_general_dilated_patches(
       perc_to_give[None,:],
@@ -1675,7 +1688,7 @@ def process_energy(env: Environment, config: EnvConfig) -> Environment:
 
 def env_increase_age(env: Environment, etd: EnvTypeDef) -> Environment:
   """Increase the age of all aging materials by 1."""
-  is_aging_m = (env.type_grid[..., None] == etd.aging_mats).any(axis=-1)
+  is_aging_m = arrayContains(etd.aging_mats, env.type_grid)
   new_state_grid = env.state_grid.at[:,:, evm.AGE_IDX].set(
       env.state_grid[:,:, evm.AGE_IDX] + is_aging_m)
   return evm.update_env_state_grid(env, new_state_grid)

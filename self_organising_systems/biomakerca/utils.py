@@ -38,6 +38,15 @@ def conditional_update(arr, idx, val, cond):
   """Update arr[idx] to val if cond is True."""
   return arr.at[idx].set((1 - cond) * arr[idx] + cond * val)
 
+def arrayContains(arr, val):
+  """Returns True if arr contains val.
+  This works for np and jp arrays. It works for batched values too.
+  Example usage:
+  arr = jp.array([1, 2, 3, 4, 5])
+  val = jp.array([3, 6])
+  arrayContains(arr, val) -> jp.array([True, False])
+  """
+  return (arr == val[..., None]).any(axis=-1)
 
 def stringify_class(instance, exclude_list=[], include_list=None):
   """Create a string that describes all class attributes and their values.

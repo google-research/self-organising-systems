@@ -36,6 +36,7 @@ from self_organising_systems.biomakerca.env_logic import PerceivedData
 from self_organising_systems.biomakerca.env_logic import UpdateOp
 from self_organising_systems.biomakerca.environments import EnvConfig
 from self_organising_systems.biomakerca.utils import conditional_update
+from self_organising_systems.biomakerca.utils import arrayContains
 
 
 ### AIR
@@ -103,7 +104,7 @@ def earth_cell_op(key: KeyType, perc: PerceivedData, config: EnvConfig
   # for now, you can't fall out of bounds.
   can_fall_i = jp.logical_and(
       neigh_type[7] != etd.types.OUT_OF_BOUNDS,
-      (neigh_type[7] == etd.intangible_mats).any(),
+      arrayContains(etd.intangible_mats, neigh_type[7])
   )
   # if you can fall, do nothing. Gravity will take care of it.
   done_i = can_fall_i
@@ -118,8 +119,8 @@ def earth_cell_op(key: KeyType, perc: PerceivedData, config: EnvConfig
   can_fall_to_side_i = (1 - done_i) * (
       (neigh_type[side_idx] != etd.types.OUT_OF_BOUNDS)
       & (neigh_type[down_side_idx] != etd.types.OUT_OF_BOUNDS)
-      & ((neigh_type[side_idx] == etd.intangible_mats).any())
-      & ((neigh_type[down_side_idx] == etd.intangible_mats).any())
+      & arrayContains(etd.intangible_mats, neigh_type[side_idx])
+      & arrayContains(etd.intangible_mats, neigh_type[down_side_idx])
   )
 
   # update the outputs if true.

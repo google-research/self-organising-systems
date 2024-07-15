@@ -28,6 +28,8 @@ from self_organising_systems.biomakerca import cells_logic
 from self_organising_systems.biomakerca import env_logic
 from self_organising_systems.biomakerca.display_utils import zoom, add_text_to_img
 from self_organising_systems.biomakerca.step_maker import step_env
+from self_organising_systems.biomakerca.utils import conditional_update
+from self_organising_systems.biomakerca.utils import arrayContains
 
 ### New EnvTypeDef
 
@@ -82,12 +84,6 @@ def is_burnable_fn(t, etd):
       etd.types.AGENT_FLOWER_SEXUAL, etd.types.AGENT_UNSPECIALIZED])
   return (t == burnable_types).any(axis=-1)
 
-
-def conditional_update(arr, idx, val, cond):
-  """Updates an entire row or a scalar value, based on the cond."""
-  return arr.at[idx].set((1 - cond) * arr[idx] + cond * val)
-
-
 def lava_cell_op(key, perc, config):
   """Create the exclusive function of LAVA cells.
 
@@ -129,7 +125,7 @@ def lava_cell_op(key, perc, config):
   # if you can fall, do nothing. Gravity will take care of it.
   can_fall_i = (1 - done_i) * jp.logical_and(
       neigh_type[7] != etd.types.OUT_OF_BOUNDS,
-      (neigh_type[7] == etd.intangible_mats).any(),
+      arrayContains(etd.intangible_mats, neigh_type[7])
   )
 
   done_i = (done_i + can_fall_i).clip(max=1)
@@ -144,8 +140,8 @@ def lava_cell_op(key, perc, config):
   can_fall_to_side_i = (1 - done_i) * (
       (neigh_type[side_idx] != etd.types.OUT_OF_BOUNDS)
       & (neigh_type[down_side_idx] != etd.types.OUT_OF_BOUNDS)
-      & ((neigh_type[side_idx] == etd.intangible_mats).any())
-      & ((neigh_type[down_side_idx] == etd.intangible_mats).any())
+      & arrayContains(etd.intangible_mats, neigh_type[side_idx])
+      & arrayContains(etd.intangible_mats, neigh_type[down_side_idx])
   )
 
   # update the outputs if true.
