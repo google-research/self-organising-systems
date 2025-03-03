@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+  <title>Game of Life - Learned Differentiable Circuit</title>
+  <script type="text/javascript" src="dist/main.js"></script>
+  <style>
+    body{
+    margin: 0;
+}
+
+div{
+    width: 100vw;
+    height: 100vh;
+}
+  </style>
+</head>
+
+<body>
+  <div id="paper" >
+  </div>  
+  <script>
+    /*
+    var circuit, monitor, monitorview, iopanel, paper;
+    const loadCircuit = function (json) {
+      circuit = new digitaljs.Circuit(json);
+      paper = circuit.displayOn($('#paper'));
+      circuit.scaleAndRefreshPaper(paper, -15);
+      circuit.start();
+    };
+    fetch('gol_circuit.json')
+    // fetch('checkerboard.json')
+    // fetch('all_gates.json')
+    .then((response) => response.json())
+    .then((json) => $(window).ready(function () { loadCircuit(json); }));
+    */
+    var circuit, monitor, paper;
+			var papers = {};
+			const fixed = function (fixed) {
+			  Object.values(papers).forEach(p => p.fixed(fixed));
+			}
+			const loadCircuit = function (json) {
+			  circuit = new digitaljs.Circuit(json);
+			  circuit.on('new:paper', function (paper) {
+				paper.fixed($('input[name=fixed]').prop('checked'));
+				papers[paper.cid] = paper;
+				paper.on('element:pointerdblclick', (cellView) => {
+				  window.digitaljsCell = cellView.model;
+				});
+			  });
+			  paper = circuit.displayOn($('#paper'));
+			  fixed($('input[name=fixed]').prop('checked'));
+			  circuit.on('remove:paper', function (paper) {
+				delete papers[paper.cid];
+			  });
+        circuit.scaleAndRefreshPaper(paper, -15);
+			  circuit.start();
+			}
+			fetch('gol_circuit.json')
+			.then((response) => response.json())
+			.then((json) => $(window).ready(function () { loadCircuit(json); }));
+
+  </script>
+</body>
+
+</html>

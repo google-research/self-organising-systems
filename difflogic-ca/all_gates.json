@@ -1,0 +1,18 @@
+    {
+    "devices": {
+        "l_1_96": {
+            "label": "",
+            "type": "True",
+            "propagation": 1,
+            "bits": 1,
+            "inputs": 2,
+            "position": {
+                "x": 140,
+                "y": 110
+            }
+        }
+    },
+    "connectors": [
+    ],
+    "subcircuits": {}
+}

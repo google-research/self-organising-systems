@@ -1,0 +1,554 @@
+    {
+    "devices": {
+        "o_7": {
+            "label": "o: ch 7",
+            "type": "Output",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 7,
+            "position": {
+                "x": 835,
+                "y": 440
+            }
+        },
+        "i_69": {
+            "label": "i: ch 7, pos 6",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 69,
+            "position": {
+                "x": 15,
+                "y": 505
+            }
+        },
+        "o_6": {
+            "label": "o: ch 6",
+            "type": "Output",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 6,
+            "position": {
+                "x": 835,
+                "y": 385
+            }
+        },
+        "i_42": {
+            "label": "i: ch 4, pos 6",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 42,
+            "position": {
+                "x": 15,
+                "y": 395
+            }
+        },
+        "o_5": {
+            "label": "o: ch 5",
+            "type": "Output",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 5,
+            "position": {
+                "x": 835,
+                "y": 330
+            }
+        },
+        "i_0": {
+            "label": "i: ch 0, pos 0",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 0,
+            "position": {
+                "x": 15,
+                "y": -45
+            }
+        },
+        "o_4": {
+            "label": "o: ch 4",
+            "type": "Output",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 4,
+            "position": {
+                "x": 835,
+                "y": 275
+            }
+        },
+        "i_62": {
+            "label": "i: ch 6, pos 8",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 62,
+            "position": {
+                "x": 15,
+                "y": 450
+            }
+        },
+        "o_3": {
+            "label": "o: ch 3",
+            "type": "Output",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 3,
+            "position": {
+                "x": 835,
+                "y": 220
+            }
+        },
+        "o_2": {
+            "label": "o: ch 2",
+            "type": "Output",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 2,
+            "position": {
+                "x": 835,
+                "y": 165
+            }
+        },
+        "l_3_124": {
+            "label": "",
+            "type": "And",
+            "propagation": 1,
+            "bits": 1,
+            "inputs": 2,
+            "position": {
+                "x": 140,
+                "y": 10
+            }
+        },
+        "i_6": {
+            "label": "i: ch 0, pos 6",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 6,
+            "position": {
+                "x": 15,
+                "y": 10
+            }
+        },
+        "o_1": {
+            "label": "o: ch 1",
+            "type": "Output",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 1,
+            "position": {
+                "x": 835,
+                "y": 110
+            }
+        },
+        "l_1_96": {
+            "label": "",
+            "type": "Or",
+            "propagation": 1,
+            "bits": 1,
+            "inputs": 2,
+            "position": {
+                "x": 140,
+                "y": 110
+            }
+        },
+        "i_17": {
+            "label": "i: ch 1, pos 8",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 17,
+            "position": {
+                "x": 15,
+                "y": 120
+            }
+        },
+        "i_9": {
+            "label": "i: ch 1, pos 0",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 9,
+            "position": {
+                "x": 15,
+                "y": 65
+            }
+        },
+        "o_0": {
+            "label": "o: ch 0",
+            "type": "Output",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 0,
+            "position": {
+                "x": 835,
+                "y": 55
+            }
+        },
+        "l_16_6": {
+            "label": "",
+            "type": "Not",
+            "propagation": 1,
+            "bits": 1,
+            "inputs": 1,
+            "position": {
+                "x": 622,
+                "y": 285
+            }
+        },
+        "l_14_4": {
+            "label": "",
+            "type": "AAndNotB",
+            "propagation": 1,
+            "bits": 1,
+            "inputs": 2,
+            "position": {
+                "x": 462,
+                "y": 285
+            }
+        },
+        "i_24": {
+            "label": "i: ch 2, pos 6",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 24,
+            "position": {
+                "x": 15,
+                "y": 230
+            }
+        },
+        "l_3_54": {
+            "label": "",
+            "type": "Or",
+            "propagation": 1,
+            "bits": 1,
+            "inputs": 2,
+            "position": {
+                "x": 302,
+                "y": 277
+            }
+        },
+        "i_33": {
+            "label": "i: ch 3, pos 6",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 33,
+            "position": {
+                "x": 15,
+                "y": 340
+            }
+        },
+        "l_1_196": {
+            "label": "",
+            "type": "Or",
+            "propagation": 1,
+            "bits": 1,
+            "inputs": 2,
+            "position": {
+                "x": 142,
+                "y": 269
+            }
+        },
+        "i_26": {
+            "label": "i: ch 2, pos 8",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 26,
+            "position": {
+                "x": 15,
+                "y": 285
+            }
+        },
+        "i_18": {
+            "label": "i: ch 2, pos 0",
+            "type": "Button",
+            "propagation": 0,
+            "numbase": "hex",
+            "bits": 1,
+            "net": "",
+            "order": 18,
+            "position": {
+                "x": 15,
+                "y": 175
+            }
+        }
+    },
+    "connectors": [
+        {
+            "from": {
+                "id": "i_69",
+                "port": "out"
+            },
+            "to": {
+                "id": "o_7",
+                "port": "in"
+            }
+        },
+        {
+            "from": {
+                "id": "i_42",
+                "port": "out"
+            },
+            "to": {
+                "id": "o_6",
+                "port": "in"
+            }
+        },
+        {
+            "from": {
+                "id": "i_0",
+                "port": "out"
+            },
+            "to": {
+                "id": "o_5",
+                "port": "in"
+            }
+        },
+        {
+            "from": {
+                "id": "i_62",
+                "port": "out"
+            },
+            "to": {
+                "id": "o_4",
+                "port": "in"
+            }
+        },
+        {
+            "from": {
+                "id": "i_0",
+                "port": "out"
+            },
+            "to": {
+                "id": "o_3",
+                "port": "in"
+            },
+            "vertices": [
+                {
+                    "x": 422,
+                    "y": 87
+                },
+                {
+                    "x": 422,
+                    "y": 117
+                },
+                {
+                    "x": 432,
+                    "y": 127
+                }
+            ]
+        },
+        {
+            "from": {
+                "id": "l_3_124",
+                "port": "out"
+            },
+            "to": {
+                "id": "o_2",
+                "port": "in"
+            }
+        },
+        {
+            "from": {
+                "id": "i_6",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_3_124",
+                "port": "in2"
+            }
+        },
+        {
+            "from": {
+                "id": "l_1_96",
+                "port": "out"
+            },
+            "to": {
+                "id": "o_1",
+                "port": "in"
+            }
+        },
+        {
+            "from": {
+                "id": "i_9",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_1_96",
+                "port": "in1"
+            }
+        },
+        {
+            "from": {
+                "id": "l_16_6",
+                "port": "out"
+            },
+            "to": {
+                "id": "o_0",
+                "port": "in"
+            }
+        },
+        {
+            "from": {
+                "id": "l_14_4",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_16_6",
+                "port": "in"
+            }
+        },
+        {
+            "from": {
+                "id": "l_3_54",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_14_4",
+                "port": "in1"
+            }
+        },
+        {
+            "from": {
+                "id": "i_33",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_3_54",
+                "port": "in2"
+            },
+            "vertices": [
+                {
+                    "x": 232,
+                    "y": 377
+                },
+                {
+                    "x": 242,
+                    "y": 367
+                },
+                {
+                    "x": 242,
+                    "y": 311
+                },
+                {
+                    "x": 252,
+                    "y": 301
+                }
+            ]
+        },
+        {
+            "from": {
+                "id": "l_1_196",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_3_54",
+                "port": "in1"
+            }
+        },
+        {
+            "from": {
+                "id": "i_6",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_3_124",
+                "port": "in1"
+            }
+        },
+        {
+            "from": {
+                "id": "i_17",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_1_96",
+                "port": "in2"
+            }
+        },
+        {
+            "from": {
+                "id": "i_26",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_1_196",
+                "port": "in2"
+            }
+        },
+        {
+            "from": {
+                "id": "i_24",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_14_4",
+                "port": "in2"
+            },
+            "vertices": [
+                {
+                    "x": 425,
+                    "y": 245
+                }
+            ]
+        },
+        {
+            "from": {
+                "id": "i_18",
+                "port": "out"
+            },
+            "to": {
+                "id": "l_1_196",
+                "port": "in1"
+            },
+            "vertices": [
+                {
+                    "x": 100,
+                    "y": 190
+                }
+            ]
+        }
+    ],
+    "subcircuits": {}
+}
