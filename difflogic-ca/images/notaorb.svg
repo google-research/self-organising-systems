@@ -27,8 +27,8 @@
      showgrid="false"
      showguides="true"
      inkscape:zoom="2.7080287"
-     inkscape:cx="107.08897"
-     inkscape:cy="67.022922"
+     inkscape:cx="107.2736"
+     inkscape:cy="67.022923"
      inkscape:window-width="1728"
      inkscape:window-height="968"
      inkscape:window-x="760"
@@ -64,21 +64,21 @@
      fill="#ffffff"
      stroke="none"
      transform="translate(3741.6254,796.21356)"
-     style="stroke-width:30;stroke-dasharray:none;fill:#999999;stroke:#000000;stroke-opacity:1">
+     style="stroke-width:4.77732283;stroke-dasharray:none;fill:#999999;stroke:#000000;stroke-opacity:1">
     <g
        joint-selector="body"
        id="v-28843"
        stroke="#000000"
        stroke-width="2"
        transform="matrix(3.5631842,0,0,3.5631842,-3762.2998,-763.22451)"
-       style="stroke-width:8.41943563;stroke-dasharray:none;fill:#999999;stroke:#000000;stroke-opacity:1">
+       style="stroke-width:1.3407454;stroke-dasharray:none;fill:#999999;stroke:#000000;stroke-opacity:1">
       <path
          joint-selector="gate"
          id="v-28841"
          d="m 14.3,0 1.6,2 c 0,0 4.5,5.6 4.5,14 0,8.4 -4.5,14 -4.5,14 l -1.6,2 H 28 c 3.8,0 16.6,-0.5 25,-16 v 0 A 28,28 0 0 0 28,0 H 16.8 Z"
          vector-effect="non-scaling-stroke"
          class="body gate"
-         style="stroke-width:8.41943563;stroke-dasharray:none;fill:#999999;stroke:#000000;stroke-opacity:1" />
+         style="stroke-width:1.3407454;stroke-dasharray:none;fill:#999999;stroke:#000000;stroke-opacity:1" />
       <circle
          stroke="#000000"
          stroke-width="2px"
@@ -89,7 +89,7 @@
          id="v-28842"
          vector-effect="non-scaling-stroke"
          class="body"
-         style="stroke-width:8.41943563;stroke-dasharray:none;fill:#999999;stroke:#000000;stroke-opacity:1" />
+         style="stroke-width:1.3407454;stroke-dasharray:none;fill:#999999;stroke:#000000;stroke-opacity:1" />
     </g>
   </g>
 </svg>
