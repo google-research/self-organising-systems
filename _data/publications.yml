@@ -31,3 +31,6 @@
 - name: Biomaker CA
   url: "https://google-research.github.io/self-organising-systems/2023/biomaker-ca/"
   published: 2023-07-19
+- name: Differentiable Logic Cellular Automata
+  url: "https://google-research.github.io/self-organising-systems/difflogic-ca"
+  published: 2025-03-07
