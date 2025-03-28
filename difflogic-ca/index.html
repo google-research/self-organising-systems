@@ -752,11 +752,36 @@ blockquote {
 .aff {
     font-size: 0.8em;
 }
+
+.colab-root {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.75);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px!important;
+    text-decoration: none;
+    color: #aaa;
+    font-weight: 500;
+    border: solid 1px rgba(0, 0, 0, 0.08);
+    border-bottom-color: rgba(0, 0, 0, 0.15);
+    text-transform: uppercase;
+    line-height: 16px;
+}
+
+span.colab-span {
+    background-image: url(colab.svg);
+    background-repeat: no-repeat;
+    background-size: 20px;
+    background-position-y: 1px;
+    display: inline-block;
+    padding-left: 24px;
+}
+
 </style>
 
 </head>
 <body>
-	<article id="17b0a320-00ae-80fd-b261-f8c156a456ad" class="page sans"><header><h1 class="page-title">Differentiable Logic Cellular Automata</h1><p class="page-description">From Game of Life to pattern generation with learned recurrent circuits</p></header><div class="page-body"><hr id="1a00a320-00ae-80de-a29e-dbb965692ffb"/><div id="1a00a320-00ae-80af-b579-fb795f51bafd" class="column-list"><div id="1a00a320-00ae-800d-8008-f5e37e6d0e83" style="width:100%" class="column"><p id="1a00a320-00ae-8056-8112-ca87a898c39e" class="aff">AUTHORS:</p><p id="1a00a320-00ae-80c4-aace-e3c77df45179" class="aff"><a href="https://pietromiotti.github.io/website/">Pietro Miotti</a></p><p id="1a00a320-00ae-806f-aad5-c243331975b3" class="aff"><a href="https://eyvind.me/">Eyvind Niklasson</a></p><p id="1a00a320-00ae-80dd-b747-e44115433cf7" class="aff"><a href="https://oteret.github.io/">Ettore Randazzo</a></p><p id="1a00a320-00ae-80c1-bb39-f3f675a69cee" class="aff"><a href="https://znah.net/">Alexander Mordvintsev</a></p></div><div id="1a00a320-00ae-80c0-b210-f83b699f92a0" style="width:100%" class="column"><p id="1a00a320-00ae-8011-b4ba-c28643baceb5" class="aff">AFFILIATIONS:</p><p id="1a00a320-00ae-805b-85c7-f25884be9e9d" class="aff">Google, Paradigms of Intelligence Team</p><p id="1a00a320-00ae-80d6-9420-e4dedc59f602" class="">
+	<article id="17b0a320-00ae-80fd-b261-f8c156a456ad" class="page sans"><header><h1 class="page-title">Differentiable Logic Cellular Automata</h1><p class="page-description">From Game of Life to pattern generation with learned recurrent circuits</p></header><a href="https://colab.research.google.com/github/google-research/self-organising-systems/blob/master/notebooks/diffLogic_CA.ipynb" target="_blank" id="colablink" class="colab-root"><span id="reprotext">Reproduce in </span><span class="colab-span">Notebook</span></a><div class="page-body"><hr id="1a00a320-00ae-80de-a29e-dbb965692ffb"/><div id="1a00a320-00ae-80af-b579-fb795f51bafd" class="column-list"><div id="1a00a320-00ae-800d-8008-f5e37e6d0e83" style="width:100%" class="column"><p id="1a00a320-00ae-8056-8112-ca87a898c39e" class="aff">AUTHORS:</p><p id="1a00a320-00ae-80c4-aace-e3c77df45179" class="aff"><a href="https://pietromiotti.github.io/website/">Pietro Miotti</a></p><p id="1a00a320-00ae-806f-aad5-c243331975b3" class="aff"><a href="https://eyvind.me/">Eyvind Niklasson</a></p><p id="1a00a320-00ae-80dd-b747-e44115433cf7" class="aff"><a href="https://oteret.github.io/">Ettore Randazzo</a></p><p id="1a00a320-00ae-80c1-bb39-f3f675a69cee" class="aff"><a href="https://znah.net/">Alexander Mordvintsev</a></p></div><div id="1a00a320-00ae-80c0-b210-f83b699f92a0" style="width:100%" class="column"><p id="1a00a320-00ae-8011-b4ba-c28643baceb5" class="aff">AFFILIATIONS:</p><p id="1a00a320-00ae-805b-85c7-f25884be9e9d" class="aff">Google, Paradigms of Intelligence Team</p><p id="1a00a320-00ae-80d6-9420-e4dedc59f602" class="">
 </p><p id="1a00a320-00ae-80a8-a013-ebde087612e4" class="">
 </p></div><div id="1a00a320-00ae-8039-8725-e431f0a0dc9c" style="width:100%" class="column"><p id="1a00a320-00ae-805e-b43f-cc895105efa5" class="aff">PUBLISHED:</p><p id="1a00a320-00ae-808c-860d-fe4f0acb4098" class="aff">March 3, 2025</p><p id="1a00a320-00ae-807d-a880-f9998098d91e" class="">
 </p></div></div><hr id="1a00a320-00ae-80bc-abd0-c2cdd760cf39"/><p id="1a00a320-00ae-80bb-a273-e899edfd6cf5" class="">Imagine trying to reverse-engineer the complex, often unexpected patterns and behaviors that emerge from simple rules. This challenge has inspired researchers and enthusiasts that work with cellular automata for decades.  In cellular automata, we generally approach things from the bottom-up. We choose local rules, then investigate the resulting emergent patterns. What if we could create systems that, given some complex desired pattern, can, in a fully differentiable fashion, learn the local rules that generate it, while preserving the inherent discrete nature of cellular automata? This is what we&#x27;ll  explore with you today.</p><div id="17c0a320-00ae-8050-84d9-eed83c749260" class="column-list"><div id="9f03a6f1-88e6-40f7-addb-635001c9dac0" style="width:50%" class="column"><figure id="17c0a320-00ae-8051-b45b-f1e017e41857" class="image"><div id="gcircuit" style="width:400px"></div><figcaption>Zoomed view of learned circuit</figcaption></figure><p id="1830a320-00ae-808f-ac51-db700b81c0b1" class="">
